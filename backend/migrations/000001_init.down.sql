@@ -1,0 +1,10 @@
+DROP TABLE IF EXISTS events_outbox;
+DROP TABLE IF EXISTS day_plan_items;
+DROP TABLE IF EXISTS day_plans;
+DROP TABLE IF EXISTS task_occurrences;
+DROP TABLE IF EXISTS tasks;
+DROP TABLE IF EXISTS topics;
+DROP TYPE IF EXISTS actor_kind;
+DROP TYPE IF EXISTS occurrence_status;
+DROP TYPE IF EXISTS task_progress;
+DROP TYPE IF EXISTS recurrence_kind;

@@ -1,0 +1,12 @@
+.env
+.env.*
+!.env.example
+node_modules/
+desktop/frontend/dist/
+desktop/frontend/wailsjs/
+desktop/frontend/package.json.md5
+desktop/build/bin/
+*.exe
+*.log
+Thumbs.db
+.DS_Store
