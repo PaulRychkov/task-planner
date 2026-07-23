@@ -22,12 +22,22 @@ type Config struct {
 }
 
 type DBConfig struct {
+	Driver   string
+	Path     string
 	Host     string
 	Port     int
 	User     string
 	Password string
 	Name     string
 	SSLMode  string
+}
+
+func (c DBConfig) IsSQLite() bool {
+	return c.Driver == "sqlite"
+}
+
+func (c DBConfig) SQLiteDSN() string {
+	return c.Path + "?_pragma=foreign_keys(1)&_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)"
 }
 
 func (c DBConfig) DSN() string {
@@ -47,6 +57,8 @@ func Load() (Config, error) {
 	v.AutomaticEnv()
 
 	v.SetDefault("http_port", 8081)
+	v.SetDefault("db_driver", "postgres")
+	v.SetDefault("db_path", "tasks.db")
 	v.SetDefault("db_host", "localhost")
 	v.SetDefault("db_port", 5433)
 	v.SetDefault("db_user", "tasks")
@@ -62,6 +74,8 @@ func Load() (Config, error) {
 	cfg := Config{
 		HTTPPort: v.GetInt("http_port"),
 		DB: DBConfig{
+			Driver:   v.GetString("db_driver"),
+			Path:     v.GetString("db_path"),
 			Host:     v.GetString("db_host"),
 			Port:     v.GetInt("db_port"),
 			User:     v.GetString("db_user"),

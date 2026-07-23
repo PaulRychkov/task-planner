@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/glebarez/sqlite"
 	"github.com/golang-migrate/migrate/v4"
 	migratepg "github.com/golang-migrate/migrate/v4/database/postgres"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
@@ -24,7 +25,9 @@ import (
 	"github.com/PaulRychkov/task-planner/backend/internal/kafka"
 	"github.com/PaulRychkov/task-planner/backend/internal/repository"
 	"github.com/PaulRychkov/task-planner/backend/internal/service"
+	"github.com/PaulRychkov/task-planner/backend/internal/sqlitemigrate"
 	"github.com/PaulRychkov/task-planner/backend/migrations"
+	migrationssqlite "github.com/PaulRychkov/task-planner/backend/migrations_sqlite"
 )
 
 func main() {
@@ -46,12 +49,18 @@ func run() error {
 	}
 	defer func() { _ = log.Sync() }()
 
-	db, err := gorm.Open(postgres.Open(cfg.DB.DSN()), &gorm.Config{
+	var dialector gorm.Dialector
+	if cfg.DB.IsSQLite() {
+		dialector = sqlite.Open(cfg.DB.SQLiteDSN())
+	} else {
+		dialector = postgres.Open(cfg.DB.DSN())
+	}
+	db, err := gorm.Open(dialector, &gorm.Config{
 		TranslateError: true,
 		Logger:         gormlogger.Default.LogMode(gormlogger.Silent),
 	})
 	if err != nil {
-		return fmt.Errorf("connect postgres: %w", err)
+		return fmt.Errorf("connect %s: %w", cfg.DB.Driver, err)
 	}
 	sqlDB, err := db.DB()
 	if err != nil {
@@ -59,7 +68,7 @@ func run() error {
 	}
 	defer func() { _ = sqlDB.Close() }()
 
-	if err := runMigrations(sqlDB); err != nil {
+	if err := runMigrations(sqlDB, cfg.DB.IsSQLite()); err != nil {
 		return fmt.Errorf("run migrations: %w", err)
 	}
 	log.Info("migrations applied")
@@ -105,7 +114,10 @@ func run() error {
 	return nil
 }
 
-func runMigrations(sqlDB *sql.DB) error {
+func runMigrations(sqlDB *sql.DB, isSQLite bool) error {
+	if isSQLite {
+		return sqlitemigrate.Up(sqlDB, migrationssqlite.FS)
+	}
 	src, err := iofs.New(migrations.FS, ".")
 	if err != nil {
 		return fmt.Errorf("open migrations fs: %w", err)

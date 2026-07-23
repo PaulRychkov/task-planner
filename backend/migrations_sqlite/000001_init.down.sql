@@ -1,0 +1,6 @@
+DROP TABLE IF EXISTS events_outbox;
+DROP TABLE IF EXISTS day_plan_items;
+DROP TABLE IF EXISTS day_plans;
+DROP TABLE IF EXISTS task_occurrences;
+DROP TABLE IF EXISTS tasks;
+DROP TABLE IF EXISTS topics;
