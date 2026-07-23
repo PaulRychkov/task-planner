@@ -64,6 +64,29 @@ cd desktop
 | TASKS_TIMEZONE | Europe/Moscow | локальная TZ пользователя |
 | TASKS_WINDOW_DAYS | 60 | окно материализации вхождений |
 | TASKS_OUTBOX_INTERVAL_SECONDS | 5 | период outbox-релея |
+| TASKS_DB_DRIVER | postgres | `postgres` или `sqlite` (мобильное) |
+| TASKS_DB_PATH | tasks.db | путь к файлу SQLite (при driver=sqlite) |
+| TASKS_SYNC_URL | — | URL сервера-источника для синхронизации (пусто = не синхронизировать) |
+| TASKS_SYNC_TOKEN | — | bearer-токен эндпоинтов `/api/v1/sync` |
+| TASKS_SYNC_INTERVAL_SECONDS | 60 | период push/pull синхронизации |
+
+## Мобильное приложение (Android)
+
+Тот же самый бэкенд и тот же самый фронтенд (`desktop/frontend`), только упакованные под телефон — без переписывания и дублирования UI.
+
+- `backend/mobile/` — gomobile-пакет: весь бэкенд задач на **SQLite** (`ncruces/go-sqlite3` — чистый Go/WASM без сисколлов, иначе seccomp Android убивает процесс) слушает `127.0.0.1:18081` и сам раздаёт собранный `desktop/frontend` как статику.
+- `android/` — тонкая Kotlin-обёртка: WebView открывает локальный бэкенд; в меню — настройки синхронизации (URL сервера ПК + токен).
+- `api.ts` фронта сам выбирает транспорт: в Wails — через биндинг, в мобильном/браузере — same-origin по `/healthz`, иначе `localhost:8081`.
+
+**Синхронизация с ПК** (`internal/syncer`): двусторонняя, REST `/api/v1/sync/changes` (GET отдаёт изменения с курсора, POST принимает). Конфликты — last-write-wins по `updated_at`; удаления через `sync_tombstones` (сервер ретранслирует их другим устройствам); ID вхождений детерминированные (uuid5 от task_id+date), поэтому одно и то же вхождение не двоится на двух устройствах.
+
+Сборка APK (окружение — `C:\Users\pavel\android-tools`, ничего в систему не ставится):
+
+```powershell
+deploy\build-android.ps1
+```
+
+Скрипт собирает фронт → кладёт в `backend/mobile/webdist` → `gomobile bind` в `android/app/libs/tasks.aar` → gradle APK в `android/app/build/outputs/apk/`.
 
 ## API (кратко)
 
