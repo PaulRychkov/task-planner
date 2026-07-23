@@ -71,7 +71,7 @@ API рассчитан на локальный запуск (localhost, един
 
 ### События (CloudEvents 1.0, топик `tasks.events`)
 
-`task.created|updated|completed|cancelled` (полный снапшот с due и временем), `occurrence.completed|missed|skipped|rescheduled`, `plan.committed|updated`. `subject` — UUID задачи для task-скоупных событий; payload несёт `task_id` (+`date` у occurrence.*).
+`task.created|updated|completed|cancelled` (снапшот задачи: окно/время, `effort_minutes`, `requires_pomodoro`, тема), `occurrence.completed|missed|skipped|rescheduled`, `plan.committed|updated`. `subject` — UUID задачи для task-скоупных событий; payload несёт `task_id` (+`date` у occurrence.*).
 
 ## Тесты
 

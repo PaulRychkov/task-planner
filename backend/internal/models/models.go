@@ -165,12 +165,13 @@ func (JSON) GormDataType() string {
 }
 
 type Topic struct {
-	ID          uuid.UUID `gorm:"type:uuid;primaryKey" json:"id"`
-	Name        string    `json:"name"`
-	Description *string   `json:"description"`
-	IsArchived  bool      `json:"is_archived"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID          uuid.UUID  `gorm:"type:uuid;primaryKey" json:"id"`
+	ParentID    *uuid.UUID `gorm:"type:uuid" json:"parent_id"`
+	Name        string     `json:"name"`
+	Description *string    `json:"description"`
+	IsArchived  bool       `json:"is_archived"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
 }
 
 func (Topic) TableName() string { return "topics" }
@@ -188,7 +189,9 @@ type Task struct {
 	Due                      *Date             `gorm:"type:date" json:"due"`
 	StartTimeMinutes         *int              `json:"start_time_minutes"`
 	EstimatedDurationMinutes *int              `json:"estimated_duration_minutes"`
+	EffortMinutes            *int              `json:"effort_minutes"`
 	AllDay                   bool              `json:"all_day"`
+	RequiresPomodoro         bool              `gorm:"not null;default:true" json:"requires_pomodoro"`
 	Priority                 int               `json:"priority"`
 	Progress                 TaskProgress      `json:"progress"`
 	IsActive                 bool              `json:"is_active"`
@@ -209,9 +212,10 @@ func (t Task) TopicName() string {
 type TaskOccurrence struct {
 	ID            uuid.UUID        `gorm:"type:uuid;primaryKey" json:"id"`
 	TaskID        uuid.UUID        `gorm:"type:uuid" json:"task_id"`
-	Date          Date             `gorm:"type:date" json:"date"`
-	Status        OccurrenceStatus `json:"status"`
-	SeriesStep    *int             `json:"series_step"`
+	Date            Date             `gorm:"type:date" json:"date"`
+	Status          OccurrenceStatus `json:"status"`
+	ProgressMinutes int              `gorm:"not null;default:0" json:"progress_minutes"`
+	SeriesStep      *int             `json:"series_step"`
 	CompletedAt   *time.Time       `json:"completed_at"`
 	RescheduledTo *Date            `gorm:"type:date" json:"rescheduled_to"`
 	CreatedAt     time.Time        `json:"created_at"`

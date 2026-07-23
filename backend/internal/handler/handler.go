@@ -76,6 +76,7 @@ func (h *Handler) Router() *gin.Engine {
 	api.GET("/occurrences", h.listOccurrences)
 	api.POST("/occurrences/:id/complete", h.completeOccurrence)
 	api.POST("/occurrences/:id/skip", h.skipOccurrence)
+	api.POST("/occurrences/:id/progress", h.occurrenceProgress)
 
 	api.GET("/plans/:date", h.getPlan)
 	api.PUT("/plans/:date/items", h.putPlanItems)

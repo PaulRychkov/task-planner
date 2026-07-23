@@ -59,6 +59,26 @@ func (h *Handler) completeOccurrence(c *gin.Context) {
 	c.JSON(http.StatusOK, occ)
 }
 
+func (h *Handler) occurrenceProgress(c *gin.Context) {
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	var in struct {
+		Minutes int `json:"minutes"`
+	}
+	if err := c.ShouldBindJSON(&in); err != nil {
+		h.badRequest(c, "invalid json body: "+err.Error())
+		return
+	}
+	occ, err := h.occs.AddProgress(c.Request.Context(), id, in.Minutes)
+	if err != nil {
+		h.fail(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, occ)
+}
+
 func (h *Handler) skipOccurrence(c *gin.Context) {
 	id, ok := parseID(c)
 	if !ok {

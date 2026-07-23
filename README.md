@@ -14,7 +14,7 @@ tasks/
 │   ├── migrations/     SQL-миграции (golang-migrate, встроены в бинарник)
 │   └── Dockerfile      multi-stage сборка
 ├── desktop/            Wails v2 приложение (React + TS + Tailwind)
-│   ├── frontend/       UI: календарь, задачи, темы, план дня
+│   ├── frontend/       UI: календарь, дерево тем и задач, темы
 │   └── main.go         окно + биндинг адреса бэкенда
 ├── docker-compose.yml  postgres:16 (порт 5433) + backend (порт 8081)
 └── planer.md           UX-прототип (Google Apps Script)
@@ -70,7 +70,7 @@ cd desktop
 REST `/api/v1` (JSON snake_case, ошибки `{"error":{"code","message"}}`):
 CRUD `/topics`, `/tasks`; `GET /occurrences?from&to&status`; `POST /occurrences/{id}/complete|skip`; `POST /tasks/{id}/reschedule-missed`; `GET /plans/{date}`; `PUT /plans/{date}/items`; `POST /plans/{date}/commit`; `GET /calendar.ics`; `GET /healthz`.
 
-MCP (streamable HTTP `/mcp`): `list_tasks`, `create_task`, `complete_occurrence`, `skip_occurrence`, `list_due`, `get_day_plan`, `commit_day_plan`, `reschedule_missed`.
+MCP (streamable HTTP `/mcp`): `list_tasks`, `create_task` (плоские поля повторений + `effort_minutes`, `requires_pomodoro`, `topic`/`parent_topic`), `complete_occurrence`, `skip_occurrence`, `list_due`, `get_day_plan`, `commit_day_plan`, `reschedule_missed`, `create_topic` (с родителем — дерево тем), `list_topics`.
 
 Подробности — в [backend/README.md](backend/README.md) и `docs/contracts.md` экосистемы. Модель данных — `docs/data-model.md`.
 

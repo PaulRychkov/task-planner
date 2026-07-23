@@ -23,7 +23,9 @@ type TaskInput struct {
 	Due                      *models.Date             `json:"due"`
 	StartTimeMinutes         *int                     `json:"start_time_minutes"`
 	EstimatedDurationMinutes *int                     `json:"estimated_duration_minutes"`
+	EffortMinutes            *int                     `json:"effort_minutes"`
 	AllDay                   *bool                    `json:"all_day"`
+	RequiresPomodoro         *bool                    `json:"requires_pomodoro"`
 	Priority                 *int                     `json:"priority"`
 	Progress                 *models.TaskProgress     `json:"progress"`
 	IsActive                 *bool                    `json:"is_active"`
@@ -85,6 +87,24 @@ func (s *TaskService) validateInput(in TaskInput) error {
 	if in.Priority != nil && (*in.Priority < 0 || *in.Priority > 9) {
 		return invalid("priority out of range 0..9")
 	}
+	if in.StartTimeMinutes != nil && in.EffortMinutes != nil {
+		return invalid("start_time_minutes and effort_minutes are mutually exclusive: fixed-time events have no effort budget")
+	}
+	if in.EstimatedDurationMinutes != nil && in.EffortMinutes != nil {
+		return invalid("estimated_duration_minutes and effort_minutes are mutually exclusive: duration belongs to fixed-time events, effort to regular tasks")
+	}
+	if in.EffortMinutes != nil && *in.EffortMinutes <= 0 {
+		return invalid("effort_minutes must be positive")
+	}
+	if in.Due != nil {
+		start := s.today()
+		if in.StartDate != nil {
+			start = *in.StartDate
+		}
+		if in.Due.Before(start) {
+			return invalid("due must not be earlier than start_date")
+		}
+	}
 	if (in.Source == nil) != (in.ExternalID == nil) {
 		return invalid("source and external_id must be set together")
 	}
@@ -110,15 +130,20 @@ func (s *TaskService) Create(ctx context.Context, in TaskInput) (*models.Task, e
 		Due:                      in.Due,
 		StartTimeMinutes:         in.StartTimeMinutes,
 		EstimatedDurationMinutes: in.EstimatedDurationMinutes,
+		EffortMinutes:            in.EffortMinutes,
 		Priority:                 0,
 		Progress:                 models.ProgressNeedsAction,
 		IsActive:                 true,
+		RequiresPomodoro:         true,
 	}
 	if in.StartDate != nil {
 		task.StartDate = *in.StartDate
 	}
 	if in.AllDay != nil {
 		task.AllDay = *in.AllDay
+	}
+	if in.RequiresPomodoro != nil {
+		task.RequiresPomodoro = *in.RequiresPomodoro
 	}
 	if in.Priority != nil {
 		task.Priority = *in.Priority
@@ -181,8 +206,12 @@ func (s *TaskService) Update(ctx context.Context, id uuid.UUID, in TaskInput) (*
 		task.Due = in.Due
 		task.StartTimeMinutes = in.StartTimeMinutes
 		task.EstimatedDurationMinutes = in.EstimatedDurationMinutes
+		task.EffortMinutes = in.EffortMinutes
 		if in.AllDay != nil {
 			task.AllDay = *in.AllDay
+		}
+		if in.RequiresPomodoro != nil {
+			task.RequiresPomodoro = *in.RequiresPomodoro
 		}
 		if in.Priority != nil {
 			task.Priority = *in.Priority
@@ -296,10 +325,15 @@ func (s *TaskService) regenerate(ctx context.Context, tx repository.Store, task 
 	windowEnd := today.AddDays(s.windowDays - 1)
 
 	from := today
-	if task.RecurrenceKind == models.RecurrenceSpacedRepetition && task.StartDate.Before(today) {
-		from = task.StartDate
-		if floor := today.AddDays(-s.windowDays); from.Before(floor) {
-			from = floor
+	if task.StartDate.Before(today) {
+		switch task.RecurrenceKind {
+		case models.RecurrenceSpacedRepetition:
+			from = task.StartDate
+			if floor := today.AddDays(-s.windowDays); from.Before(floor) {
+				from = floor
+			}
+		case models.RecurrenceOnce:
+			from = task.StartDate
 		}
 	}
 
@@ -490,6 +524,14 @@ func (s *TaskService) MarkMissed(ctx context.Context) (int, error) {
 		for i := range occs {
 			o := occs[i]
 			task := o.Task
+			if task != nil {
+				if !task.IsActive || !task.Progress.Open() {
+					continue
+				}
+				if task.Due != nil && !task.Due.Before(today) {
+					continue
+				}
+			}
 			o.Task = nil
 			o.Status = models.OccurrenceMissed
 			if err := tx.Occurrences().Update(ctx, &o); err != nil {

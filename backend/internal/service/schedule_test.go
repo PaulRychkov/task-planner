@@ -47,8 +47,14 @@ func TestScheduleDates(t *testing.T) {
 			want: []string{"2026-07-08"},
 		},
 		{
-			name: "once outside window",
+			name: "once beyond window still scheduled",
 			kind: models.RecurrenceOnce, start: "2026-07-20",
+			from: "2026-07-06", to: "2026-07-12",
+			want: []string{"2026-07-20"},
+		},
+		{
+			name: "once before window dropped",
+			kind: models.RecurrenceOnce, start: "2026-07-01",
 			from: "2026-07-06", to: "2026-07-12",
 			want: nil,
 		},

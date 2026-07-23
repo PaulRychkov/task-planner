@@ -31,21 +31,39 @@ type createTaskInput struct {
 	Title                    string `json:"title" jsonschema:"task title"`
 	Description              string `json:"description,omitempty"`
 	Topic                    string `json:"topic,omitempty" jsonschema:"topic name, created if missing"`
+	ParentTopic              string `json:"parent_topic,omitempty" jsonschema:"parent topic name for the topic, creates the hierarchy if missing"`
 	RecurrenceKind           string `json:"recurrence_kind" jsonschema:"once|daily|weekdays|weekends|days_of_week|every_n_days|every_n_weeks|monthly|spaced_repetition"`
 	Days                     []int  `json:"days,omitempty" jsonschema:"ISO weekdays 1..7 for days_of_week"`
 	N                        int    `json:"n,omitempty" jsonschema:"step for every_n_days / every_n_weeks"`
 	DayOfMonth               int    `json:"day_of_month,omitempty" jsonschema:"day of month for monthly, 0 = same as start_date"`
 	Intervals                []int  `json:"intervals,omitempty" jsonschema:"spaced repetition intervals in days from start_date"`
 	StartDate                string `json:"start_date,omitempty" jsonschema:"YYYY-MM-DD, default today"`
-	Due                      string `json:"due,omitempty" jsonschema:"deadline YYYY-MM-DD, only for once"`
-	StartTimeMinutes         int    `json:"start_time_minutes,omitempty" jsonschema:"minutes from midnight 0..1439, 0 = unset"`
-	EstimatedDurationMinutes int    `json:"estimated_duration_minutes,omitempty"`
-	Priority                 int    `json:"priority,omitempty" jsonschema:"0..9, 1 = highest"`
+	Due                      string `json:"due,omitempty" jsonschema:"deadline YYYY-MM-DD: the execution window is start_date..due, may span many days; only for once"`
+	StartTimeMinutes         int    `json:"start_time_minutes,omitempty" jsonschema:"fixed clock time (minutes from midnight) ONLY for continuous events like meetings or gym; mutually exclusive with effort_minutes; regular tasks must NOT have a fixed time"`
+	EstimatedDurationMinutes int    `json:"estimated_duration_minutes,omitempty" jsonschema:"duration of a fixed-time continuous event in minutes"`
+	EffortMinutes            int    `json:"effort_minutes,omitempty" jsonschema:"estimated effort in minutes for regular tasks; the pomodoro app converts it to pomodoros (~25 min each); mutually exclusive with start_time_minutes"`
+	Priority                 int    `json:"priority,omitempty" jsonschema:"1..9, 1 = highest; omit for no priority (0 cannot be set via MCP)"`
 	AllDay                   bool   `json:"all_day,omitempty"`
+	RequiresPomodoro         *bool  `json:"requires_pomodoro,omitempty" jsonschema:"whether the task needs pomodoro focus sessions; false for events like gym or meetings, default true"`
+}
+
+type createTopicInput struct {
+	Name        string `json:"name" jsonschema:"topic name"`
+	Parent      string `json:"parent,omitempty" jsonschema:"parent topic name, created if missing; builds a multi-level topic tree"`
+	Description string `json:"description,omitempty"`
+}
+
+type listTopicsInput struct {
+	IncludeArchived bool `json:"include_archived,omitempty"`
 }
 
 type occurrenceIDInput struct {
 	OccurrenceID string `json:"occurrence_id" jsonschema:"occurrence UUID"`
+}
+
+type logProgressInput struct {
+	OccurrenceID string `json:"occurrence_id" jsonschema:"occurrence UUID"`
+	Minutes      int    `json:"minutes" jsonschema:"worked minutes to add; negative to subtract"`
 }
 
 type listDueInput struct {
@@ -109,6 +127,21 @@ func (h *Handler) MCPHandler() http.Handler {
 		Description: "Shift missed occurrences of a task forward to today, moving the whole schedule",
 	}, h.mcpRescheduleMissed)
 
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "log_progress",
+		Description: "Add worked minutes to a task occurrence (progress toward its effort_minutes); negative minutes subtract",
+	}, h.mcpLogProgress)
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "create_topic",
+		Description: "Create a topic (optionally under a parent topic) for the multi-level task tree",
+	}, h.mcpCreateTopic)
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "list_topics",
+		Description: "List topics with their parent_id to see the topic tree",
+	}, h.mcpListTopics)
+
 	return mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return server }, nil)
 }
 
@@ -137,7 +170,15 @@ func (h *Handler) mcpCreateTask(ctx context.Context, _ *mcp.CallToolRequest, in 
 		input.Description = &in.Description
 	}
 	if in.Topic != "" {
-		topic, err := h.topics.FindOrCreate(ctx, in.Topic)
+		var parentID *uuid.UUID
+		if in.ParentTopic != "" {
+			parent, err := h.topics.FindOrCreate(ctx, in.ParentTopic)
+			if err != nil {
+				return nil, nil, err
+			}
+			parentID = &parent.ID
+		}
+		topic, err := h.topics.FindOrCreateUnder(ctx, in.Topic, parentID)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -183,6 +224,11 @@ func (h *Handler) mcpCreateTask(ctx context.Context, _ *mcp.CallToolRequest, in 
 		v := in.EstimatedDurationMinutes
 		input.EstimatedDurationMinutes = &v
 	}
+	if in.EffortMinutes > 0 {
+		v := in.EffortMinutes
+		input.EffortMinutes = &v
+	}
+	input.RequiresPomodoro = in.RequiresPomodoro
 	if in.Priority > 0 {
 		v := in.Priority
 		input.Priority = &v
@@ -299,6 +345,50 @@ func (h *Handler) mcpCommitDayPlan(ctx context.Context, _ *mcp.CallToolRequest, 
 		return nil, nil, err
 	}
 	return textResult(plan)
+}
+
+func (h *Handler) mcpLogProgress(ctx context.Context, _ *mcp.CallToolRequest, in logProgressInput) (*mcp.CallToolResult, any, error) {
+	id, err := uuid.Parse(in.OccurrenceID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("invalid occurrence_id: %w", err)
+	}
+	occ, err := h.occs.AddProgress(ctx, id, in.Minutes)
+	if err != nil {
+		return nil, nil, err
+	}
+	return textResult(occ)
+}
+
+func (h *Handler) mcpCreateTopic(ctx context.Context, _ *mcp.CallToolRequest, in createTopicInput) (*mcp.CallToolResult, any, error) {
+	var parentID *uuid.UUID
+	if in.Parent != "" {
+		parent, err := h.topics.FindOrCreate(ctx, in.Parent)
+		if err != nil {
+			return nil, nil, err
+		}
+		parentID = &parent.ID
+	}
+	topic, err := h.topics.FindOrCreateUnder(ctx, in.Name, parentID)
+	if err != nil {
+		return nil, nil, err
+	}
+	if in.Description != "" && topic.Description == nil {
+		desc := in.Description
+		updated, uerr := h.topics.Update(ctx, topic.ID, service.TopicInput{Name: topic.Name, ParentID: topic.ParentID, Description: &desc})
+		if uerr != nil {
+			return nil, nil, uerr
+		}
+		topic = updated
+	}
+	return textResult(topic)
+}
+
+func (h *Handler) mcpListTopics(ctx context.Context, _ *mcp.CallToolRequest, in listTopicsInput) (*mcp.CallToolResult, any, error) {
+	topics, err := h.topics.List(ctx, in.IncludeArchived)
+	if err != nil {
+		return nil, nil, err
+	}
+	return textResult(topics)
 }
 
 func (h *Handler) mcpRescheduleMissed(ctx context.Context, _ *mcp.CallToolRequest, in taskIDInput) (*mcp.CallToolResult, any, error) {

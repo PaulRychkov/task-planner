@@ -1,4 +1,4 @@
-import type { DayPlan, Occurrence, RescheduleResult, Task, TaskInput, Topic } from './types'
+import type { Occurrence, RescheduleResult, Task, TaskInput, Topic } from './types'
 
 declare global {
   interface Window {
@@ -52,9 +52,9 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 export const api = {
   listTopics: (includeArchived = false) =>
     request<Topic[]>('GET', `/api/v1/topics?include_archived=${includeArchived}`),
-  createTopic: (input: { name: string; description?: string | null }) =>
+  createTopic: (input: { name: string; parent_id?: string | null; description?: string | null }) =>
     request<Topic>('POST', '/api/v1/topics', input),
-  updateTopic: (id: string, input: { name: string; description?: string | null; is_archived?: boolean }) =>
+  updateTopic: (id: string, input: { name: string; parent_id?: string | null; description?: string | null; is_archived?: boolean }) =>
     request<Topic>('PUT', `/api/v1/topics/${id}`, input),
   deleteTopic: (id: string) => request<void>('DELETE', `/api/v1/topics/${id}`),
 
@@ -72,11 +72,8 @@ export const api = {
     ),
   completeOccurrence: (id: string) => request<Occurrence>('POST', `/api/v1/occurrences/${id}/complete`),
   skipOccurrence: (id: string) => request<Occurrence>('POST', `/api/v1/occurrences/${id}/skip`),
-
-  getPlan: (date: string) => request<DayPlan>('GET', `/api/v1/plans/${date}`),
-  putPlanItems: (date: string, items: { occurrence_id: string; planned_start_minutes: number | null }[]) =>
-    request<DayPlan>('PUT', `/api/v1/plans/${date}/items`, { items }),
-  commitPlan: (date: string) => request<DayPlan>('POST', `/api/v1/plans/${date}/commit`, { committed_by: 'app' }),
+  addProgress: (id: string, minutes: number) =>
+    request<Occurrence>('POST', `/api/v1/occurrences/${id}/progress`, { minutes }),
 
   health: async (): Promise<boolean> => {
     try {

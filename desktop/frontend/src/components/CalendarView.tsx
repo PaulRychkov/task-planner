@@ -24,6 +24,7 @@ export default function CalendarView({ onDataChanged }: Props) {
   const [occs, setOccs] = useState<Occurrence[]>([])
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
+  const [popupDate, setPopupDate] = useState<string | null>(null)
 
   const range = useMemo((): [string, string] => {
     if (mode === 'month') {
@@ -81,6 +82,7 @@ export default function CalendarView({ onDataChanged }: Props) {
 
   const complete = (o: Occurrence) => void mutate(() => api.completeOccurrence(o.id))
   const skip = (o: Occurrence) => void mutate(() => api.skipOccurrence(o.id))
+  const progress = (o: Occurrence, minutes: number) => void mutate(() => api.addProgress(o.id, minutes))
 
   const rescheduleAll = () =>
     void mutate(async () => {
@@ -159,12 +161,113 @@ export default function CalendarView({ onDataChanged }: Props) {
       )}
 
       {mode === 'month' && (
-        <MonthGrid anchor={anchor} byDate={byDate} onComplete={complete} onSkip={skip} onOpenDay={(d) => { setAnchor(d); setMode('day') }} />
+        <MonthGrid anchor={anchor} byDate={byDate} onPickDay={setPopupDate} onOpenDay={(d) => { setAnchor(d); setMode('day') }} />
       )}
       {mode === 'week' && (
         <WeekGrid anchor={anchor} byDate={byDate} onComplete={complete} onSkip={skip} onOpenDay={(d) => { setAnchor(d); setMode('day') }} />
       )}
       {mode === 'day' && <DayTimeline date={anchor} occurrences={byDate.get(anchor) ?? []} onComplete={complete} onSkip={skip} />}
+
+      {popupDate && (
+        <DayPopup
+          date={popupDate}
+          occurrences={byDate.get(popupDate) ?? []}
+          busy={busy}
+          onComplete={complete}
+          onSkip={skip}
+          onProgress={progress}
+          onOpenDay={(d) => { setPopupDate(null); setAnchor(d); setMode('day') }}
+          onClose={() => setPopupDate(null)}
+        />
+      )}
+    </div>
+  )
+}
+
+const DOT_COLORS: Record<string, string> = {
+  pending: '#00ADD8',
+  completed: '#2F9E44',
+  skipped: '#868E96',
+  missed: '#E03131',
+  rescheduled: '#868E96',
+}
+
+function isTimed(o: Occurrence): boolean {
+  return o.task?.start_time_minutes != null && !o.task?.all_day
+}
+
+interface DayPopupProps {
+  date: string
+  occurrences: Occurrence[]
+  busy: boolean
+  onComplete: (o: Occurrence) => void
+  onSkip: (o: Occurrence) => void
+  onProgress: (o: Occurrence, minutes: number) => void
+  onOpenDay: (date: string) => void
+  onClose: () => void
+}
+
+function DayPopup({ date, occurrences, busy, onComplete, onSkip, onProgress, onOpenDay, onClose }: DayPopupProps) {
+  return (
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/30" onClick={onClose}>
+      <div
+        className="max-h-[80vh] w-[560px] overflow-y-auto rounded-2xl bg-surface p-5 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-3 flex items-center">
+          <h2 className="text-base font-semibold">{weekdayOf(date)}, {humanDate(date)}</h2>
+          <button className="btn-outline ml-auto py-1 text-xs" onClick={() => onOpenDay(date)}>
+            Открыть день
+          </button>
+          <button className="btn-ghost ml-1 py-1" onClick={onClose}>✕</button>
+        </div>
+        {occurrences.length === 0 && <div className="py-6 text-center text-sm text-muted">На этот день задач нет.</div>}
+        <div className="space-y-2">
+          {occurrences.map((o) => {
+            const effort = o.task?.effort_minutes ?? null
+            const done = o.status === 'completed'
+            const open = o.status === 'pending' || o.status === 'missed'
+            const pct = effort ? Math.min(100, Math.round((o.progress_minutes / effort) * 100)) : null
+            return (
+              <div key={o.id} className={`rounded-xl border border-slate-200 p-3 ${done ? 'opacity-70' : ''}`}>
+                <div className="flex items-center gap-2">
+                  <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: DOT_COLORS[o.status] ?? '#00ADD8' }} />
+                  {isTimed(o) && (
+                    <span className="text-xs font-semibold tabular-nums">{minutesToTime(o.task!.start_time_minutes!)}</span>
+                  )}
+                  <span className={`truncate text-sm font-medium ${done ? 'line-through' : ''}`}>{o.task?.title}</span>
+                  {o.task?.topic?.name && <span className="truncate text-xs text-muted">· {o.task.topic.name}</span>}
+                  {open && (
+                    <span className="ml-auto flex shrink-0 gap-1">
+                      <button className="btn-outline px-2 py-0.5 text-xs" disabled={busy} onClick={() => onComplete(o)}>✓</button>
+                      <button className="btn-ghost px-2 py-0.5 text-xs" disabled={busy} onClick={() => onSkip(o)}>⏭</button>
+                    </span>
+                  )}
+                </div>
+                {effort != null && (
+                  <div className="mt-2 flex items-center gap-2">
+                    <div className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-slate-100">
+                      <div
+                        className="h-full rounded-full"
+                        style={{ width: `${pct}%`, background: pct !== null && pct >= 100 ? '#2F9E44' : '#00ADD8' }}
+                      />
+                    </div>
+                    <span className="shrink-0 text-xs tabular-nums text-muted">
+                      {o.progress_minutes}/{effort} мин
+                    </span>
+                    {open && (
+                      <span className="flex shrink-0 gap-1">
+                        <button className="btn-ghost px-1.5 py-0.5 text-xs" disabled={busy} onClick={() => onProgress(o, 25)}>+25′</button>
+                        <button className="btn-ghost px-1.5 py-0.5 text-xs" disabled={busy || o.progress_minutes === 0} onClick={() => onProgress(o, -25)}>−25′</button>
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </div>
     </div>
   )
 }
@@ -177,7 +280,14 @@ interface GridProps {
   onOpenDay: (date: string) => void
 }
 
-function MonthGrid({ anchor, byDate, onComplete, onSkip, onOpenDay }: GridProps) {
+interface MonthGridProps {
+  anchor: string
+  byDate: Map<string, Occurrence[]>
+  onPickDay: (date: string) => void
+  onOpenDay: (date: string) => void
+}
+
+function MonthGrid({ anchor, byDate, onPickDay, onOpenDay }: MonthGridProps) {
   const cells = monthGrid(anchor)
   const today = todayISO()
   return (
@@ -194,28 +304,46 @@ function MonthGrid({ anchor, byDate, onComplete, onSkip, onOpenDay }: GridProps)
           const inMonth = sameMonth(date, anchor)
           const isToday = date === today
           const list = byDate.get(date) ?? []
-          const shown = list.slice(0, 3)
+          const timed = list.filter(isTimed).slice(0, 2)
+          const dots = list.filter((o) => !isTimed(o))
           return (
             <div
               key={date}
-              onClick={() => onOpenDay(date)}
-              className={`min-h-[104px] border-b border-r border-slate-100 p-1.5 cursor-pointer transition-colors hover:bg-primary/5 ${
+              onClick={() => onPickDay(date)}
+              className={`min-h-[88px] border-b border-r border-slate-100 p-1.5 cursor-pointer transition-colors hover:bg-primary/5 ${
                 inMonth ? '' : 'bg-slate-50/50'
               }`}
             >
               <div
-                className={`mb-1 flex h-6 w-6 items-center justify-center rounded-lg text-xs font-semibold ${
+                onClick={(e) => { e.stopPropagation(); onOpenDay(date) }}
+                className={`mb-1 flex h-6 w-6 items-center justify-center rounded-lg text-xs font-semibold hover:ring-1 hover:ring-primary/40 ${
                   isToday ? 'bg-primary text-white' : inMonth ? 'text-ink' : 'text-slate-400'
                 }`}
               >
                 {Number(date.slice(8))}
               </div>
-              <div className="space-y-0.5">
-                {shown.map((o) => (
-                  <OccurrenceChip key={o.id} occurrence={o} compact onComplete={onComplete} onSkip={onSkip} />
+              <div className="space-y-1">
+                {timed.map((o) => (
+                  <div
+                    key={o.id}
+                    className="truncate rounded-md bg-primary/10 px-1.5 py-0.5 text-[11px] text-primary-dark"
+                    title={`${minutesToTime(o.task!.start_time_minutes!)} ${o.task?.title ?? ''}`}
+                  >
+                    {minutesToTime(o.task!.start_time_minutes!)} {o.task?.title}
+                  </div>
                 ))}
-                {list.length > shown.length && (
-                  <div className="text-[11px] text-muted px-1">ещё {list.length - shown.length}</div>
+                {dots.length > 0 && (
+                  <div className="flex flex-wrap gap-1 px-0.5 pt-0.5">
+                    {dots.slice(0, 12).map((o) => (
+                      <span
+                        key={o.id}
+                        className="h-2 w-2 rounded-full"
+                        title={`${o.task?.title ?? ''}${o.task?.effort_minutes ? ` · ${o.progress_minutes}/${o.task.effort_minutes} мин` : ''}`}
+                        style={{ background: DOT_COLORS[o.status] ?? '#00ADD8' }}
+                      />
+                    ))}
+                    {dots.length > 12 && <span className="text-[10px] text-muted">+{dots.length - 12}</span>}
+                  </div>
                 )}
               </div>
             </div>

@@ -68,6 +68,38 @@ func (s *OccurrenceService) Complete(ctx context.Context, id uuid.UUID) (*models
 	return result, nil
 }
 
+func (s *OccurrenceService) AddProgress(ctx context.Context, id uuid.UUID, deltaMinutes int) (*models.TaskOccurrence, error) {
+	if deltaMinutes == 0 {
+		return nil, invalid("minutes must be non-zero")
+	}
+	var result *models.TaskOccurrence
+	err := s.store.InTx(ctx, func(tx repository.Store) error {
+		occ, err := tx.Occurrences().Get(ctx, id)
+		if err != nil {
+			return err
+		}
+		if occ.Status == models.OccurrenceSkipped || occ.Status == models.OccurrenceRescheduled {
+			return conflict(fmt.Sprintf("cannot log progress on occurrence in status %q", occ.Status))
+		}
+		task := occ.Task
+		occ.Task = nil
+		occ.ProgressMinutes += deltaMinutes
+		if occ.ProgressMinutes < 0 {
+			occ.ProgressMinutes = 0
+		}
+		if err := tx.Occurrences().Update(ctx, occ); err != nil {
+			return err
+		}
+		occ.Task = task
+		result = occ
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
 func (s *OccurrenceService) closesTask(task *models.Task, occ *models.TaskOccurrence) bool {
 	if task.RecurrenceKind == models.RecurrenceOnce {
 		return true

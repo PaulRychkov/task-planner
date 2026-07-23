@@ -43,6 +43,8 @@ export default function TaskForm({ task, topics, onClose, onSaved }: Props) {
     task?.estimated_duration_minutes != null ? String(task.estimated_duration_minutes) : '',
   )
   const [allDay, setAllDay] = useState(task?.all_day ?? false)
+  const [effort, setEffort] = useState(task?.effort_minutes != null ? String(task.effort_minutes) : '')
+  const [requiresPomodoro, setRequiresPomodoro] = useState(task?.requires_pomodoro ?? true)
   const [priority, setPriority] = useState(task?.priority ?? 0)
   const [isActive, setIsActive] = useState(task?.is_active ?? true)
   const [error, setError] = useState<string | null>(null)
@@ -72,7 +74,9 @@ export default function TaskForm({ task, topics, onClose, onSaved }: Props) {
       due: kind === 'once' && due ? due : null,
       start_time_minutes: startTime ? timeToMinutes(startTime) : null,
       estimated_duration_minutes: duration ? Number(duration) : null,
+      effort_minutes: !startTime && effort ? Number(effort) : null,
       all_day: allDay,
+      requires_pomodoro: requiresPomodoro,
       priority,
       is_active: isActive,
     }
@@ -227,8 +231,8 @@ export default function TaskForm({ task, topics, onClose, onSaved }: Props) {
           )}
 
           <div>
-            <label className="label">Начало</label>
-            <select className="input" value={startTime} onChange={(e) => setStartTime(e.target.value)} disabled={allDay}>
+            <label className="label">Фикс. время (событие: созвон, зал)</label>
+            <select className="input" value={startTime} onChange={(e) => setStartTime(e.target.value)} disabled={allDay || !!effort}>
               <option value="">Без времени</option>
               {START_TIMES.map((m) => (
                 <option key={m} value={minutesToTime(m)}>{minutesToTime(m)}</option>
@@ -237,13 +241,27 @@ export default function TaskForm({ task, topics, onClose, onSaved }: Props) {
           </div>
 
           <div>
-            <label className="label">Длительность</label>
-            <select className="input" value={duration} onChange={(e) => setDuration(e.target.value)} disabled={allDay}>
+            <label className="label">Длительность события</label>
+            <select className="input" value={duration} onChange={(e) => setDuration(e.target.value)} disabled={allDay || !!effort}>
               <option value="">Не задана</option>
               {DURATIONS.map((d) => (
                 <option key={d.minutes} value={d.minutes}>{d.label}</option>
               ))}
             </select>
+          </div>
+
+          <div>
+            <label className="label">Трудозатраты, мин (≈ {effort ? Math.max(1, Math.round(Number(effort) / 25)) : 0} 🍅)</label>
+            <input
+              className="input"
+              type="number"
+              min="0"
+              step="5"
+              placeholder="Только для обычных задач"
+              value={effort}
+              disabled={!!startTime}
+              onChange={(e) => setEffort(e.target.value)}
+            />
           </div>
 
           <div>
@@ -259,6 +277,10 @@ export default function TaskForm({ task, topics, onClose, onSaved }: Props) {
             <label className="flex items-center gap-2 text-sm cursor-pointer">
               <input type="checkbox" className="h-4 w-4 accent-primary" checked={allDay} onChange={(e) => setAllDay(e.target.checked)} />
               Весь день
+            </label>
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <input type="checkbox" className="h-4 w-4 accent-primary" checked={requiresPomodoro} onChange={(e) => setRequiresPomodoro(e.target.checked)} />
+              Помидоры
             </label>
             <label className="flex items-center gap-2 text-sm cursor-pointer">
               <input type="checkbox" className="h-4 w-4 accent-primary" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />

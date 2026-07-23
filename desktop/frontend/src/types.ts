@@ -22,6 +22,7 @@ export interface RecurrenceParams {
 
 export interface Topic {
   id: string
+  parent_id: string | null
   name: string
   description: string | null
   is_archived: boolean
@@ -42,7 +43,9 @@ export interface Task {
   due: string | null
   start_time_minutes: number | null
   estimated_duration_minutes: number | null
+  effort_minutes: number | null
   all_day: boolean
+  requires_pomodoro: boolean
   priority: number
   progress: TaskProgress
   is_active: boolean
@@ -54,27 +57,11 @@ export interface Occurrence {
   task_id: string
   date: string
   status: OccurrenceStatus
+  progress_minutes: number
   series_step: number | null
   completed_at: string | null
   rescheduled_to: string | null
   task?: Task | null
-}
-
-export interface DayPlanItem {
-  id: string
-  plan_id: string
-  occurrence_id: string
-  planned_start_minutes: number | null
-  position: number
-  occurrence?: Occurrence | null
-}
-
-export interface DayPlan {
-  id: string
-  date: string
-  committed_at: string | null
-  committed_by: string | null
-  items: DayPlanItem[]
 }
 
 export interface TaskInput {
@@ -87,7 +74,9 @@ export interface TaskInput {
   due?: string | null
   start_time_minutes?: number | null
   estimated_duration_minutes?: number | null
+  effort_minutes?: number | null
   all_day?: boolean
+  requires_pomodoro?: boolean
   priority?: number
   is_active?: boolean
 }

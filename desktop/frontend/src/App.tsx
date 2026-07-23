@@ -1,19 +1,19 @@
 import { useCallback, useEffect, useState } from 'react'
-import { CalendarDays, ListTodo, Tags, ClipboardList, CircleAlert } from 'lucide-react'
+import { CalendarDays, ListTodo, Tags, BarChart3, CircleAlert } from 'lucide-react'
 import { api } from './api'
 import type { Task, Topic } from './types'
 import CalendarView from './components/CalendarView'
 import TasksView from './components/TasksView'
 import TopicsView from './components/TopicsView'
-import PlanView from './components/PlanView'
+import StatsView from './components/StatsView'
 
-type View = 'calendar' | 'tasks' | 'topics' | 'plan'
+type View = 'calendar' | 'tasks' | 'topics' | 'stats'
 
 const NAV: { view: View; label: string; icon: typeof CalendarDays }[] = [
   { view: 'calendar', label: 'Календарь', icon: CalendarDays },
   { view: 'tasks', label: 'Задачи', icon: ListTodo },
   { view: 'topics', label: 'Темы', icon: Tags },
-  { view: 'plan', label: 'План дня', icon: ClipboardList },
+  { view: 'stats', label: 'Статистика', icon: BarChart3 },
 ]
 
 export default function App() {
@@ -39,7 +39,16 @@ export default function App() {
 
   useEffect(() => {
     void reload()
-    const timer = setInterval(() => void api.health().then(setOnline), 15000)
+    const timer = setInterval(() => {
+      void api.health().then((ok) => {
+        setOnline((prev) => {
+          if (ok && !prev) {
+            void reload()
+          }
+          return ok
+        })
+      })
+    }, 15000)
     return () => clearInterval(timer)
   }, [reload])
 
@@ -89,7 +98,7 @@ export default function App() {
         {view === 'calendar' && <CalendarView onDataChanged={reload} />}
         {view === 'tasks' && <TasksView tasks={tasks} topics={topics} onDataChanged={reload} />}
         {view === 'topics' && <TopicsView topics={topics} onDataChanged={reload} />}
-        {view === 'plan' && <PlanView onDataChanged={reload} />}
+        {view === 'stats' && <StatsView tasks={tasks} topics={topics} />}
       </main>
     </div>
   )

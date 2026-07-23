@@ -32,7 +32,7 @@ type DBConfig struct {
 
 func (c DBConfig) DSN() string {
 	return fmt.Sprintf(
-		"host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
+		"host=%s port=%d user=%s password=%s dbname=%s sslmode=%s connect_timeout=10",
 		c.Host, c.Port, c.User, c.Password, c.Name, c.SSLMode,
 	)
 }

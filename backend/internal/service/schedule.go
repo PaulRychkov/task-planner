@@ -75,8 +75,12 @@ func ScheduleDates(task models.Task, from, to models.Date) []ScheduledDate {
 
 	switch task.RecurrenceKind {
 	case models.RecurrenceOnce:
-		if !start.Before(from) && !start.After(to) {
-			return []ScheduledDate{{Date: start}}
+		date := start
+		if task.Due != nil {
+			date = *task.Due
+		}
+		if !date.Before(from) {
+			return []ScheduledDate{{Date: date}}
 		}
 		return nil
 	case models.RecurrenceDaily:

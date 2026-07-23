@@ -168,6 +168,12 @@ func (r *topicRepo) Delete(ctx context.Context, id uuid.UUID) error {
 			r.s.tasks[tid] = task
 		}
 	}
+	for cid, child := range r.s.topics {
+		if child.ParentID != nil && *child.ParentID == id {
+			child.ParentID = nil
+			r.s.topics[cid] = child
+		}
+	}
 	return nil
 }
 
