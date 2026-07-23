@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Tasks</string>
+    <string name="menu_sync">Синхронизация</string>
+    <string name="sync_url_hint">URL сервера (http://пк:8081)</string>
+    <string name="sync_token_hint">Токен (если задан на сервере)</string>
+    <string name="sync_save">Сохранить</string>
+    <string name="sync_cancel">Отмена</string>
+</resources>

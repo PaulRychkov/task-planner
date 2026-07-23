@@ -2,7 +2,9 @@ package handler
 
 import (
 	"context"
+	"io/fs"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -29,6 +31,7 @@ type Handler struct {
 	log       *zap.Logger
 	sync      *syncer.Service
 	syncToken string
+	static    fs.FS
 }
 
 func New(
@@ -56,6 +59,11 @@ func New(
 func (h *Handler) WithSync(svc *syncer.Service, token string) *Handler {
 	h.sync = svc
 	h.syncToken = token
+	return h
+}
+
+func (h *Handler) WithStatic(static fs.FS) *Handler {
+	h.static = static
 	return h
 }
 
@@ -99,6 +107,20 @@ func (h *Handler) Router() *gin.Engine {
 
 	mcpHandler := h.MCPHandler()
 	r.Any("/mcp", gin.WrapH(mcpHandler))
+
+	if h.static != nil {
+		fileServer := http.FileServer(http.FS(h.static))
+		r.NoRoute(func(c *gin.Context) {
+			p := strings.TrimPrefix(c.Request.URL.Path, "/")
+			if p == "" {
+				p = "index.html"
+			}
+			if _, err := fs.Stat(h.static, p); err != nil {
+				c.Request.URL.Path = "/"
+			}
+			fileServer.ServeHTTP(c.Writer, c.Request)
+		})
+	}
 
 	return r
 }

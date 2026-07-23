@@ -11,7 +11,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/glebarez/sqlite"
+	"github.com/ncruces/go-sqlite3/gormlite"
+	_ "github.com/ncruces/go-sqlite3/embed"
 	"github.com/golang-migrate/migrate/v4"
 	migratepg "github.com/golang-migrate/migrate/v4/database/postgres"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
@@ -52,7 +53,7 @@ func run() error {
 
 	var dialector gorm.Dialector
 	if cfg.DB.IsSQLite() {
-		dialector = sqlite.Open(cfg.DB.SQLiteDSN())
+		dialector = gormlite.Open(cfg.DB.SQLiteDSN())
 	} else {
 		dialector = postgres.Open(cfg.DB.DSN())
 	}

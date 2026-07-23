@@ -15,12 +15,23 @@ declare global {
 let baseURL: string | null = null
 
 async function base(): Promise<string> {
-  if (baseURL) return baseURL
+  if (baseURL !== null) return baseURL
   if (window.go?.main?.App?.GetBackendURL) {
     baseURL = await window.go.main.App.GetBackendURL()
-  } else {
-    baseURL = 'http://localhost:8081'
+    return baseURL
   }
+  if (window.location.protocol.startsWith('http')) {
+    try {
+      const probe = await fetch('/healthz')
+      if (probe.ok) {
+        baseURL = ''
+        return baseURL
+      }
+    } catch {
+      /* dev-сервер без бэкенда на том же origin */
+    }
+  }
+  baseURL = 'http://localhost:8081'
   return baseURL
 }
 
