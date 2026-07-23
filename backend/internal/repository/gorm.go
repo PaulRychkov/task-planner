@@ -103,7 +103,11 @@ func (r *gormTopics) Delete(ctx context.Context, id uuid.UUID) error {
 	if res.RowsAffected == 0 {
 		return ErrNotFound
 	}
-	return nil
+	return recordTombstone(r.db.WithContext(ctx), "topics", id)
+}
+
+func recordTombstone(db *gorm.DB, table string, id uuid.UUID) error {
+	return translate(db.Create(&models.SyncTombstone{Table: table, RowID: id, DeletedAt: time.Now().UTC()}).Error)
 }
 
 type gormTasks struct {
@@ -166,7 +170,7 @@ func (r *gormTasks) Delete(ctx context.Context, id uuid.UUID) error {
 	if res.RowsAffected == 0 {
 		return ErrNotFound
 	}
-	return nil
+	return recordTombstone(r.db.WithContext(ctx), "tasks", id)
 }
 
 type gormOccurrences struct {
@@ -214,7 +218,9 @@ func (r *gormOccurrences) CompletedSteps(ctx context.Context, taskID uuid.UUID) 
 }
 
 func (r *gormOccurrences) InsertIgnoreConflict(ctx context.Context, o *models.TaskOccurrence) (bool, error) {
-	EnsureID(&o.ID)
+	if o.ID == uuid.Nil {
+		o.ID = OccurrenceID(o.TaskID, o.Date.String())
+	}
 	res := r.db.WithContext(ctx).Omit("Task").Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "task_id"}, {Name: "date"}},
 		DoNothing: true,
@@ -237,7 +243,7 @@ func (r *gormOccurrences) Delete(ctx context.Context, id uuid.UUID) error {
 	if res.RowsAffected == 0 {
 		return ErrNotFound
 	}
-	return nil
+	return recordTombstone(r.db.WithContext(ctx), "task_occurrences", id)
 }
 
 type gormPlans struct {

@@ -19,6 +19,9 @@ type Config struct {
 	WindowDays     int
 	OutboxInterval time.Duration
 	Location       *time.Location
+	SyncToken      string
+	SyncURL        string
+	SyncInterval   time.Duration
 }
 
 type DBConfig struct {
@@ -70,6 +73,9 @@ func Load() (Config, error) {
 	v.SetDefault("timezone", "Europe/Moscow")
 	v.SetDefault("window_days", 60)
 	v.SetDefault("outbox_interval_seconds", 5)
+	v.SetDefault("sync_token", "")
+	v.SetDefault("sync_url", "")
+	v.SetDefault("sync_interval_seconds", 60)
 
 	cfg := Config{
 		HTTPPort: v.GetInt("http_port"),
@@ -88,6 +94,9 @@ func Load() (Config, error) {
 		Timezone:       v.GetString("timezone"),
 		WindowDays:     v.GetInt("window_days"),
 		OutboxInterval: time.Duration(v.GetInt("outbox_interval_seconds")) * time.Second,
+		SyncToken:      v.GetString("sync_token"),
+		SyncURL:        strings.TrimRight(v.GetString("sync_url"), "/"),
+		SyncInterval:   time.Duration(v.GetInt("sync_interval_seconds")) * time.Second,
 	}
 
 	loc, err := time.LoadLocation(cfg.Timezone)

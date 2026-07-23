@@ -11,6 +11,7 @@ import (
 
 	"github.com/PaulRychkov/task-planner/backend/internal/models"
 	"github.com/PaulRychkov/task-planner/backend/internal/service"
+	"github.com/PaulRychkov/task-planner/backend/internal/syncer"
 )
 
 type Pinger interface {
@@ -18,14 +19,16 @@ type Pinger interface {
 }
 
 type Handler struct {
-	db     Pinger
-	topics *service.TopicService
-	tasks  *service.TaskService
-	occs   *service.OccurrenceService
-	plans  *service.PlanService
-	clock  service.Clock
-	loc    *time.Location
-	log    *zap.Logger
+	db        Pinger
+	topics    *service.TopicService
+	tasks     *service.TaskService
+	occs      *service.OccurrenceService
+	plans     *service.PlanService
+	clock     service.Clock
+	loc       *time.Location
+	log       *zap.Logger
+	sync      *syncer.Service
+	syncToken string
 }
 
 func New(
@@ -50,6 +53,12 @@ func New(
 	}
 }
 
+func (h *Handler) WithSync(svc *syncer.Service, token string) *Handler {
+	h.sync = svc
+	h.syncToken = token
+	return h
+}
+
 func (h *Handler) Router() *gin.Engine {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
@@ -59,6 +68,12 @@ func (h *Handler) Router() *gin.Engine {
 	r.GET("/calendar.ics", h.calendarICS)
 
 	api := r.Group("/api/v1")
+
+	if h.sync != nil {
+		sg := api.Group("/sync", h.syncAuth())
+		sg.GET("/changes", h.syncChanges)
+		sg.POST("/changes", h.syncApply)
+	}
 
 	api.GET("/topics", h.listTopics)
 	api.POST("/topics", h.createTopic)

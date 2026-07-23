@@ -202,6 +202,22 @@ type Task struct {
 
 func (Task) TableName() string { return "tasks" }
 
+type SyncTombstone struct {
+	ID        uint      `gorm:"primaryKey;autoIncrement" json:"-"`
+	Table     string    `gorm:"column:table_name;not null" json:"table"`
+	RowID     uuid.UUID `gorm:"type:uuid;not null" json:"row_id"`
+	DeletedAt time.Time `gorm:"not null" json:"deleted_at"`
+}
+
+func (SyncTombstone) TableName() string { return "sync_tombstones" }
+
+type SyncState struct {
+	Key   string `gorm:"primaryKey"`
+	Value string `gorm:"not null"`
+}
+
+func (SyncState) TableName() string { return "sync_state" }
+
 func (t Task) TopicName() string {
 	if t.Topic == nil {
 		return ""

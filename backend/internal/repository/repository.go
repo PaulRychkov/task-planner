@@ -86,3 +86,7 @@ func EnsureID(id *uuid.UUID) {
 		*id = uuid.New()
 	}
 }
+
+func OccurrenceID(taskID uuid.UUID, date string) uuid.UUID {
+	return uuid.NewSHA1(uuid.NameSpaceOID, []byte("tasks.occurrence:"+taskID.String()+":"+date))
+}

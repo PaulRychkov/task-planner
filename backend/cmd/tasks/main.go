@@ -26,6 +26,7 @@ import (
 	"github.com/PaulRychkov/task-planner/backend/internal/repository"
 	"github.com/PaulRychkov/task-planner/backend/internal/service"
 	"github.com/PaulRychkov/task-planner/backend/internal/sqlitemigrate"
+	"github.com/PaulRychkov/task-planner/backend/internal/syncer"
 	"github.com/PaulRychkov/task-planner/backend/migrations"
 	migrationssqlite "github.com/PaulRychkov/task-planner/backend/migrations_sqlite"
 )
@@ -58,6 +59,7 @@ func run() error {
 	db, err := gorm.Open(dialector, &gorm.Config{
 		TranslateError: true,
 		Logger:         gormlogger.Default.LogMode(gormlogger.Silent),
+		NowFunc:        func() time.Time { return time.Now().UTC() },
 	})
 	if err != nil {
 		return fmt.Errorf("connect %s: %w", cfg.DB.Driver, err)
@@ -80,7 +82,8 @@ func run() error {
 	occs := service.NewOccurrenceService(store, clock, cfg.Location)
 	plans := service.NewPlanService(store, clock, cfg.Location)
 
-	h := handler.New(store, topics, tasks, occs, plans, clock, cfg.Location, log)
+	syncSvc := &syncer.Service{DB: db, Log: log}
+	h := handler.New(store, topics, tasks, occs, plans, clock, cfg.Location, log).WithSync(syncSvc, cfg.SyncToken)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -92,6 +95,9 @@ func run() error {
 	relay := service.NewOutboxRelay(store, producer, clock, log, cfg.OutboxInterval)
 	go relay.Run(ctx)
 	go runDailyJobs(ctx, tasks, cfg.Location, clock, log)
+	if cfg.SyncURL != "" {
+		go syncer.NewClient(syncSvc, cfg.SyncURL, cfg.SyncToken, cfg.SyncInterval, log).Run(ctx)
+	}
 
 	srv := &http.Server{
 		Addr:    fmt.Sprintf(":%d", cfg.HTTPPort),
