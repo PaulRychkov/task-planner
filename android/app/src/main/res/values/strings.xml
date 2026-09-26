@@ -6,4 +6,8 @@
     <string name="sync_token_hint">Токен (если задан на сервере)</string>
     <string name="sync_save">Сохранить</string>
     <string name="sync_cancel">Отмена</string>
+    <string name="channel_server">Сервер задач</string>
+    <string name="server_starting">Запуск сервера…</string>
+    <string name="server_running">Сервер задач доступен</string>
+    <string name="server_failed">Сервер не запустился: %1$s</string>
 </resources>

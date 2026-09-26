@@ -455,3 +455,30 @@ func TestDeactivatedTaskLosesPending(t *testing.T) {
 		}
 	}
 }
+
+func TestRescheduleSkipsNonReschedulable(t *testing.T) {
+	f := newFixture(t)
+	task := f.mustCreate(t, TaskInput{Title: "ежедневная", RecurrenceKind: models.RecurrenceDaily})
+	if task.Reschedulable {
+		t.Fatalf("ежедневная задача не должна быть переносимой")
+	}
+	res, err := f.tasks.RescheduleMissed(context.Background(), task.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Rescheduled != 0 {
+		t.Fatalf("непереносимая задача не должна переноситься, перенесено %d", res.Rescheduled)
+	}
+}
+
+func TestSpacedRepetitionIsReschedulable(t *testing.T) {
+	f := newFixture(t)
+	task := f.mustCreate(t, TaskInput{
+		Title:            "тема go",
+		RecurrenceKind:   models.RecurrenceSpacedRepetition,
+		RecurrenceParams: &models.RecurrenceParams{Intervals: []int{0, 1, 3}},
+	})
+	if !task.Reschedulable {
+		t.Fatalf("задача с интервальным повторением должна быть переносимой")
+	}
+}

@@ -229,15 +229,15 @@ export default function TopicsView({ topics, onDataChanged }: Props) {
   }
 
   return (
-    <div className="p-6 space-y-4 max-w-4xl">
+    <div className="p-4 md:p-6 space-y-4 max-w-4xl">
       <h1 className="text-xl font-semibold">Темы</h1>
 
-      <div className="card p-4 flex gap-3 items-end flex-wrap">
-        <div className="flex-1 min-w-[180px]">
+      <div className="card p-4 flex flex-col gap-3 md:flex-row md:items-end md:flex-wrap">
+        <div className="flex-1 min-w-0 md:min-w-[180px]">
           <label className="label">Тема</label>
           <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Поиск работы" />
         </div>
-        <div className="flex-1 min-w-[180px]">
+        <div className="flex-1 min-w-0 md:min-w-[180px]">
           <label className="label">Родительская тема</label>
           <select className="input" value={parentID} onChange={(e) => setParentID(e.target.value)}>
             <option value="">— корневая —</option>
@@ -249,7 +249,7 @@ export default function TopicsView({ topics, onDataChanged }: Props) {
             ))}
           </select>
         </div>
-        <div className="flex-[2] min-w-[240px]">
+        <div className="flex-[2] min-w-0 md:min-w-[240px]">
           <label className="label">Описание</label>
           <input
             className="input"
@@ -258,7 +258,7 @@ export default function TopicsView({ topics, onDataChanged }: Props) {
             placeholder="Подготовка к собеседованиям"
           />
         </div>
-        <button className="btn-primary" onClick={add} disabled={!name.trim()}>
+        <button className="btn-primary justify-center" onClick={add} disabled={!name.trim()}>
           <Plus size={16} />
           Добавить
         </button>

@@ -6,9 +6,12 @@ import android.content.Context
 import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
+import android.webkit.JavascriptInterface
+import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.EditText
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.Toast
 import mobile.Mobile
@@ -20,19 +23,31 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         startServer()
+        actionBar?.hide()
         web = WebView(this).apply {
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
+            settings.textZoom = 100
             webViewClient = WebViewClient()
+            webChromeClient = WebChromeClient()
+            addJavascriptInterface(JsHost(), "AndroidHost")
             loadUrl(Mobile.baseURL())
         }
-        setContentView(web)
+        val root = FrameLayout(this).apply { fitsSystemWindows = true }
+        root.addView(
+            web,
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT,
+            ),
+        )
+        setContentView(root)
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        if (isFinishing) {
-            Mobile.stop()
+    inner class JsHost {
+        @JavascriptInterface
+        fun openSync() {
+            runOnUiThread { showSyncDialog() }
         }
     }
 
@@ -52,6 +67,7 @@ class MainActivity : Activity() {
     private fun prefs() = getSharedPreferences("sync", Context.MODE_PRIVATE)
 
     private fun startServer() {
+        ServerService.launch(this)
         val err = Mobile.start(
             filesDir.absolutePath,
             prefs().getString("url", "") ?: "",

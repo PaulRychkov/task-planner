@@ -4,6 +4,7 @@ import { api } from '../api'
 import type { RecurrenceKind, Task, TaskInput, Topic } from '../types'
 import { todayISO, timeToMinutes, minutesToTime, WEEKDAYS_SHORT } from '../lib/dates'
 import { DURATIONS, KIND_LABELS, KIND_ORDER, paramsRequired, SR_PRESETS, START_TIMES } from '../lib/recurrence'
+import { MIN_PRIORITY, PRIORITY_LEVELS, priorityWeightPercent } from '../lib/priority'
 
 interface Props {
   task: Task | null
@@ -45,7 +46,7 @@ export default function TaskForm({ task, topics, onClose, onSaved }: Props) {
   const [allDay, setAllDay] = useState(task?.all_day ?? false)
   const [effort, setEffort] = useState(task?.effort_minutes != null ? String(task.effort_minutes) : '')
   const [requiresPomodoro, setRequiresPomodoro] = useState(task?.requires_pomodoro ?? true)
-  const [priority, setPriority] = useState(task?.priority ?? 0)
+  const [priority, setPriority] = useState(Math.max(MIN_PRIORITY, task?.priority ?? MIN_PRIORITY))
   const [isActive, setIsActive] = useState(task?.is_active ?? true)
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -101,9 +102,9 @@ export default function TaskForm({ task, topics, onClose, onSaved }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-ink/40 p-4 sm:items-center" onClick={onClose}>
       <div
-        className="card w-full max-w-2xl max-h-[92vh] overflow-y-auto p-6"
+        className="card my-auto w-full max-w-2xl max-h-[92dvh] overflow-y-auto p-4 sm:p-6"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center mb-5">
@@ -113,13 +114,13 @@ export default function TaskForm({ task, topics, onClose, onSaved }: Props) {
           </button>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div className="col-span-2">
+        <div className="grid grid-cols-1 gap-4 min-[480px]:grid-cols-2">
+          <div className="col-span-full">
             <label className="label">Задача</label>
-            <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Что нужно делать" autoFocus />
+            <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Что нужно делать" />
           </div>
 
-          <div className="col-span-2">
+          <div className="col-span-full">
             <label className="label">Заметка</label>
             <textarea className="input resize-none" rows={2} value={description} onChange={(e) => setDescription(e.target.value)} />
           </div>
@@ -144,7 +145,7 @@ export default function TaskForm({ task, topics, onClose, onSaved }: Props) {
           </div>
 
           {kind === 'days_of_week' && (
-            <div className="col-span-2">
+            <div className="col-span-full">
               <label className="label">Дни недели</label>
               <div className="flex gap-1.5">
                 {WEEKDAYS_SHORT.map((label, i) => (
@@ -194,7 +195,7 @@ export default function TaskForm({ task, topics, onClose, onSaved }: Props) {
           )}
 
           {kind === 'spaced_repetition' && (
-            <div className="col-span-2 space-y-2">
+            <div className="col-span-full space-y-2">
               <label className="label">Схема закрепления</label>
               <select
                 className="input"
@@ -265,10 +266,10 @@ export default function TaskForm({ task, topics, onClose, onSaved }: Props) {
           </div>
 
           <div>
-            <label className="label">Приоритет (1 — высший, 0 — нет)</label>
+            <label className="label">Приоритет</label>
             <select className="input" value={priority} onChange={(e) => setPriority(Number(e.target.value))}>
-              {Array.from({ length: 10 }, (_, i) => (
-                <option key={i} value={i}>{i === 0 ? 'Без приоритета' : i}</option>
+              {PRIORITY_LEVELS.map((p) => (
+                <option key={p} value={p}>{p} — {priorityWeightPercent(p)}%</option>
               ))}
             </select>
           </div>

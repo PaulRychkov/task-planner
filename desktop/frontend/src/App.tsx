@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { CalendarDays, ListTodo, Tags, BarChart3, CircleAlert } from 'lucide-react'
+import { CalendarDays, ListTodo, Tags, BarChart3, CircleAlert, RefreshCw } from 'lucide-react'
 import { api } from './api'
 import type { Task, Topic } from './types'
 import CalendarView from './components/CalendarView'
@@ -15,6 +15,8 @@ const NAV: { view: View; label: string; icon: typeof CalendarDays }[] = [
   { view: 'topics', label: 'Темы', icon: Tags },
   { view: 'stats', label: 'Статистика', icon: BarChart3 },
 ]
+
+const androidHost = (window as unknown as { AndroidHost?: { openSync: () => void } }).AndroidHost
 
 export default function App() {
   const [view, setView] = useState<View>('calendar')
@@ -53,8 +55,8 @@ export default function App() {
   }, [reload])
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      <aside className="w-56 shrink-0 border-r border-slate-200 bg-surface flex flex-col">
+    <div className="flex h-screen overflow-hidden pt-[env(safe-area-inset-top)]">
+      <aside className="hidden md:flex w-56 shrink-0 border-r border-slate-200 bg-surface flex-col">
         <div className="px-5 py-5 flex items-center gap-2.5">
           <div className="h-9 w-9 rounded-xl bg-primary flex items-center justify-center text-white font-bold text-lg">
             З
@@ -84,11 +86,11 @@ export default function App() {
         </div>
       </aside>
 
-      <main className="flex-1 overflow-y-auto">
+      <main className="flex-1 overflow-y-auto pb-16 md:pb-0">
         {!online && (
-          <div className="m-6 card p-4 flex items-center gap-3 text-sm text-danger border-danger/30">
+          <div className="m-4 md:m-6 card p-4 flex flex-wrap items-center gap-3 text-sm text-danger border-danger/30">
             <CircleAlert size={18} />
-            Бэкенд не отвечает на http://localhost:8081 — запусти tasks backend и обнови.
+            Бэкенд не отвечает — запусти tasks backend и обнови.
             <button className="btn-outline ml-auto" onClick={() => void reload()}>
               Обновить
             </button>
@@ -100,6 +102,33 @@ export default function App() {
         {view === 'topics' && <TopicsView topics={topics} onDataChanged={reload} />}
         {view === 'stats' && <StatsView tasks={tasks} topics={topics} />}
       </main>
+
+      <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 flex border-t border-slate-200 bg-surface pb-[max(0.9rem,env(safe-area-inset-bottom))]">
+        {NAV.map(({ view: v, label, icon: Icon }) => (
+          <button
+            key={v}
+            onClick={() => setView(v)}
+            aria-label={label}
+            aria-current={view === v ? 'page' : undefined}
+            className={`flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] font-medium transition-colors ${
+              view === v ? 'text-primary-dark' : 'text-muted'
+            }`}
+          >
+            <Icon size={20} />
+            {label}
+          </button>
+        ))}
+        {androidHost && (
+          <button
+            onClick={() => androidHost.openSync()}
+            aria-label="Синхронизация"
+            className="flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] font-medium text-muted"
+          >
+            <RefreshCw size={20} />
+            Синхр.
+          </button>
+        )}
+      </nav>
     </div>
   )
 }

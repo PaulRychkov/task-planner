@@ -31,7 +31,7 @@ export default function OccurrenceChip({ occurrence: o, compact, onComplete, onS
       {time && !compact && <span className="font-semibold tabular-nums">{time}</span>}
       <span className="truncate flex-1">{title}</span>
       {actionable && (
-        <span className="hidden group-hover:flex items-center gap-0.5 shrink-0">
+        <span className="flex items-center gap-0.5 shrink-0 [@media(hover:hover)]:hidden [@media(hover:hover)]:group-hover:flex">
           <button
             className="rounded p-0.5 hover:bg-success/20 text-emerald-700"
             title="Выполнено"

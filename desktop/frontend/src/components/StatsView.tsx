@@ -149,11 +149,11 @@ export default function StatsView({ tasks, topics }: Props) {
   const gap = 14
 
   return (
-    <div className="p-6 space-y-5 max-w-4xl" onMouseLeave={() => setTip(null)}>
+    <div className="p-4 md:p-6 space-y-5 max-w-4xl" onMouseLeave={() => setTip(null)}>
       <h1 className="text-xl font-semibold">Статистика</h1>
       {error && <div className="card px-4 py-2.5 text-sm text-danger">{error}</div>}
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-3 min-[480px]:gap-4">
         <div className="card p-4">
           <div className="text-2xl font-semibold tabular-nums">{totals.completed}</div>
           <div className="text-xs text-muted">выполнено вхождений за 30 дней</div>
@@ -171,9 +171,9 @@ export default function StatsView({ tasks, topics }: Props) {
       </div>
 
       <div className="card p-5">
-        <div className="mb-1 flex items-center gap-4">
+        <div className="mb-1 flex flex-wrap items-center gap-x-4 gap-y-1">
           <h2 className="text-sm font-semibold">Последние 14 дней</h2>
-          <div className="ml-auto flex gap-4">
+          <div className="flex flex-wrap gap-x-4 gap-y-1 md:ml-auto">
             {STATUS_META.map((s) => (
               <span key={s.key} className="flex items-center gap-1.5 text-xs text-muted">
                 <span className="h-2.5 w-2.5 rounded-sm" style={{ background: s.color }} />
@@ -182,7 +182,13 @@ export default function StatsView({ tasks, topics }: Props) {
             ))}
           </div>
         </div>
-        <svg width={(barW + gap) * days.length + 8} height={chartH + 24} className="max-w-full">
+        <svg
+          viewBox={`0 0 ${(barW + gap) * days.length + 8} ${chartH + 24}`}
+          width="100%"
+          height={chartH + 24}
+          preserveAspectRatio="xMinYMid meet"
+          className="max-w-full"
+        >
           {days.map((d, i) => {
             const total = d.completed + d.skipped + d.missed
             let y = chartH

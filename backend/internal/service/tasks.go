@@ -26,6 +26,7 @@ type TaskInput struct {
 	EffortMinutes            *int                     `json:"effort_minutes"`
 	AllDay                   *bool                    `json:"all_day"`
 	RequiresPomodoro         *bool                    `json:"requires_pomodoro"`
+	Reschedulable            *bool                    `json:"reschedulable"`
 	Priority                 *int                     `json:"priority"`
 	Progress                 *models.TaskProgress     `json:"progress"`
 	IsActive                 *bool                    `json:"is_active"`
@@ -84,8 +85,8 @@ func (s *TaskService) validateInput(in TaskInput) error {
 	if in.EstimatedDurationMinutes != nil && *in.EstimatedDurationMinutes <= 0 {
 		return invalid("estimated_duration_minutes must be positive")
 	}
-	if in.Priority != nil && (*in.Priority < 0 || *in.Priority > 9) {
-		return invalid("priority out of range 0..9")
+	if in.Priority != nil && (*in.Priority < models.MinPriority || *in.Priority > models.MaxPriority) {
+		return invalid("priority out of range 1..5")
 	}
 	if in.StartTimeMinutes != nil && in.EffortMinutes != nil {
 		return invalid("start_time_minutes and effort_minutes are mutually exclusive: fixed-time events have no effort budget")
@@ -131,10 +132,11 @@ func (s *TaskService) Create(ctx context.Context, in TaskInput) (*models.Task, e
 		StartTimeMinutes:         in.StartTimeMinutes,
 		EstimatedDurationMinutes: in.EstimatedDurationMinutes,
 		EffortMinutes:            in.EffortMinutes,
-		Priority:                 0,
+		Priority:                 models.MinPriority,
 		Progress:                 models.ProgressNeedsAction,
 		IsActive:                 true,
 		RequiresPomodoro:         true,
+		Reschedulable:            in.RecurrenceKind == models.RecurrenceOnce || in.RecurrenceKind == models.RecurrenceSpacedRepetition,
 	}
 	if in.StartDate != nil {
 		task.StartDate = *in.StartDate
@@ -144,6 +146,9 @@ func (s *TaskService) Create(ctx context.Context, in TaskInput) (*models.Task, e
 	}
 	if in.RequiresPomodoro != nil {
 		task.RequiresPomodoro = *in.RequiresPomodoro
+	}
+	if in.Reschedulable != nil {
+		task.Reschedulable = *in.Reschedulable
 	}
 	if in.Priority != nil {
 		task.Priority = *in.Priority
@@ -212,6 +217,9 @@ func (s *TaskService) Update(ctx context.Context, id uuid.UUID, in TaskInput) (*
 		}
 		if in.RequiresPomodoro != nil {
 			task.RequiresPomodoro = *in.RequiresPomodoro
+		}
+		if in.Reschedulable != nil {
+			task.Reschedulable = *in.Reschedulable
 		}
 		if in.Priority != nil {
 			task.Priority = *in.Priority
@@ -428,6 +436,9 @@ func (s *TaskService) RescheduleMissed(ctx context.Context, id uuid.UUID) (*Resc
 		task, err := tx.Tasks().Get(ctx, id)
 		if err != nil {
 			return err
+		}
+		if !task.Reschedulable {
+			return nil
 		}
 		today := s.today()
 

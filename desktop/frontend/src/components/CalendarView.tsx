@@ -118,7 +118,7 @@ export default function CalendarView({ onDataChanged }: Props) {
         : `${weekdayOf(anchor)}, ${humanDate(anchor)}`
 
   return (
-    <div className="p-6 space-y-4">
+    <div className="p-4 md:p-6 space-y-4">
       <div className="flex items-center gap-3 flex-wrap">
         <h1 className="text-xl font-semibold">{title}</h1>
         <div className="flex items-center gap-1 ml-auto">
@@ -209,9 +209,9 @@ interface DayPopupProps {
 
 function DayPopup({ date, occurrences, busy, onComplete, onSkip, onProgress, onOpenDay, onClose }: DayPopupProps) {
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/30" onClick={onClose}>
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/30 p-3 md:p-4" onClick={onClose}>
       <div
-        className="max-h-[80vh] w-[560px] overflow-y-auto rounded-2xl bg-surface p-5 shadow-xl"
+        className="max-h-[85vh] w-full max-w-[560px] overflow-y-auto rounded-2xl bg-surface p-4 shadow-xl md:p-5"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-center">
@@ -252,8 +252,15 @@ function DayPopup({ date, occurrences, busy, onComplete, onSkip, onProgress, onO
                         style={{ width: `${pct}%`, background: pct !== null && pct >= 100 ? '#2F9E44' : '#00ADD8' }}
                       />
                     </div>
-                    <span className="shrink-0 text-xs tabular-nums text-muted">
+                    <span
+                      className={
+                        'shrink-0 text-xs tabular-nums ' +
+                        (effort && o.progress_minutes > effort ? 'font-medium text-amber-600' : 'text-muted')
+                      }
+                      title={effort && o.progress_minutes > effort ? `сверх плана на ${o.progress_minutes - effort} мин` : undefined}
+                    >
                       {o.progress_minutes}/{effort} мин
+                      {effort && o.progress_minutes > effort ? ` · +${o.progress_minutes - effort}` : ''}
                     </span>
                     {open && (
                       <span className="flex shrink-0 gap-1">
@@ -360,29 +367,35 @@ function WeekGrid({ anchor, byDate, onComplete, onSkip, onOpenDay }: GridProps) 
   const today = todayISO()
   return (
     <div className="card overflow-hidden">
-      <div className="grid grid-cols-7">
-        {days.map((date, i) => (
-          <div key={date} className="border-r border-slate-100 last:border-r-0">
-            <button
-              onClick={() => onOpenDay(date)}
-              className={`w-full px-2 py-2 text-center border-b border-slate-200 ${
-                date === today ? 'bg-primary/10' : 'bg-slate-50/60'
-              }`}
-            >
-              <div className={`text-xs font-semibold ${i >= 5 ? 'text-primary-dark' : 'text-muted'}`}>
-                {WEEKDAYS_SHORT[i]}
+      <div className="grid grid-cols-1 md:grid-cols-7">
+        {days.map((date, i) => {
+          const list = byDate.get(date) ?? []
+          return (
+            <div key={date} className="border-b border-slate-100 last:border-b-0 md:border-b-0 md:border-r md:last:border-r-0">
+              <button
+                onClick={() => onOpenDay(date)}
+                className={`flex w-full items-center gap-2 px-3 py-2 md:flex-col md:gap-0 md:border-b md:border-slate-200 md:px-2 md:text-center ${
+                  date === today ? 'bg-primary/10' : 'bg-slate-50/60'
+                }`}
+              >
+                <span className={`text-xs font-semibold ${i >= 5 ? 'text-primary-dark' : 'text-muted'}`}>
+                  {WEEKDAYS_SHORT[i]}
+                </span>
+                <span className={`text-sm font-semibold ${date === today ? 'text-primary-dark' : ''}`}>
+                  {Number(date.slice(8))}
+                </span>
+                {list.length > 0 && (
+                  <span className="ml-auto text-xs text-muted md:hidden">{list.length}</span>
+                )}
+              </button>
+              <div className="space-y-1 p-1.5 md:min-h-[320px]">
+                {list.map((o) => (
+                  <OccurrenceChip key={o.id} occurrence={o} onComplete={onComplete} onSkip={onSkip} />
+                ))}
               </div>
-              <div className={`text-sm font-semibold ${date === today ? 'text-primary-dark' : ''}`}>
-                {Number(date.slice(8))}
-              </div>
-            </button>
-            <div className="p-1.5 space-y-1 min-h-[320px]">
-              {(byDate.get(date) ?? []).map((o) => (
-                <OccurrenceChip key={o.id} occurrence={o} onComplete={onComplete} onSkip={onSkip} />
-              ))}
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
     </div>
   )
@@ -410,9 +423,9 @@ function DayTimeline({ date, occurrences, onComplete, onSkip }: DayProps) {
           <div className="text-xs font-semibold text-muted uppercase tracking-wide mb-2">
             Гибкие задачи · {humanDate(date)}
           </div>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-col gap-1.5 md:flex-row md:flex-wrap">
             {flexible.map((o) => (
-              <div key={o.id} className="min-w-[200px] max-w-xs flex-1">
+              <div key={o.id} className="w-full min-w-0 md:min-w-[200px] md:max-w-xs md:flex-1">
                 <OccurrenceChip occurrence={o} onComplete={onComplete} onSkip={onSkip} />
               </div>
             ))}
@@ -449,14 +462,18 @@ function DayTimeline({ date, occurrences, onComplete, onSkip }: DayProps) {
                 }`}
                 style={{ top, height }}
               >
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold tabular-nums text-xs">
+                <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                  <span className="shrink-0 font-semibold tabular-nums text-xs">
                     {minutesToTime(o.task!.start_time_minutes!)}
                   </span>
-                  <span className="font-medium truncate">{o.task?.title}</span>
-                  {o.task?.topic?.name && <span className="text-xs opacity-70 truncate">· {o.task.topic.name}</span>}
+                  <span className="min-w-0 truncate font-medium">{o.task?.title}</span>
+                  {o.task?.topic?.name && (
+                    <span className="hidden min-w-0 truncate text-xs opacity-70 min-[420px]:inline">
+                      · {o.task.topic.name}
+                    </span>
+                  )}
                   {(o.status === 'pending' || o.status === 'missed') && (
-                    <span className="ml-auto flex gap-1 shrink-0">
+                    <span className="flex shrink-0 gap-1 md:ml-auto">
                       <button
                         className="rounded-lg border border-current/20 px-2 py-0.5 text-xs hover:bg-success/20"
                         onClick={() => onComplete(o)}

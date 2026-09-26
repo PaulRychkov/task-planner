@@ -4,6 +4,7 @@ import { api } from '../api'
 import type { Task, Topic } from '../types'
 import { minutesToTime } from '../lib/dates'
 import { describeRecurrence } from '../lib/recurrence'
+import { priorityWeightPercent } from '../lib/priority'
 import TaskForm from './TaskForm'
 
 interface Props {
@@ -55,6 +56,28 @@ function buildTree(topics: Topic[], tasks: Task[]): { roots: TopicNode[]; orphan
   }
   sortRec(roots)
   return { roots, orphanTasks }
+}
+
+function timeMeta(task: Task): React.ReactNode {
+  if (task.effort_minutes) {
+    return (
+      <span className="inline-flex items-center gap-1">
+        <Timer size={13} />
+        {task.effort_minutes} мин ≈ {Math.max(1, Math.round(task.effort_minutes / 25))} 🍅
+      </span>
+    )
+  }
+  if (task.all_day) return 'весь день'
+  if (task.start_time_minutes != null) {
+    return (
+      <span className="inline-flex items-center gap-1">
+        <Clock size={13} />
+        {minutesToTime(task.start_time_minutes)}
+        {task.estimated_duration_minutes ? ` · ${task.estimated_duration_minutes} мин` : ''}
+      </span>
+    )
+  }
+  return '—'
 }
 
 function countTasks(node: TopicNode): number {
@@ -131,35 +154,24 @@ export default function TasksView({ tasks, topics, onDataChanged }: Props) {
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 font-medium">
           {task.priority > 0 && (
-            <span className="rounded-md bg-primary/10 px-1.5 py-0.5 text-[11px] font-semibold text-primary-dark">
+            <span
+              className="shrink-0 rounded-md bg-primary/10 px-1.5 py-0.5 text-[11px] font-semibold text-primary-dark"
+              title={`Приоритет ${task.priority} — вес ${priorityWeightPercent(task.priority)}%`}
+            >
               P{task.priority}
             </span>
           )}
-          <span className="truncate">{task.title}</span>
+          <span className="min-w-0 flex-1 truncate">{task.title}</span>
         </div>
-        <div className="flex gap-2 text-xs text-muted">
+        <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-xs text-muted">
           <span>{PROGRESS_LABELS[task.progress]}</span>
           <span>{describeRecurrence(task)}</span>
           {task.due && <span className="text-danger">дедлайн {task.due}</span>}
+          <span className="min-[560px]:hidden">{timeMeta(task)}</span>
         </div>
       </div>
-      <span className="shrink-0 text-xs text-muted tabular-nums">
-        {task.all_day ? (
-          'весь день'
-        ) : task.start_time_minutes != null ? (
-          <span className="inline-flex items-center gap-1">
-            <Clock size={13} />
-            {minutesToTime(task.start_time_minutes)}
-            {task.estimated_duration_minutes ? ` · ${task.estimated_duration_minutes} мин` : ''}
-          </span>
-        ) : task.effort_minutes ? (
-          <span className="inline-flex items-center gap-1">
-            <Timer size={13} />
-            {task.effort_minutes} мин ≈ {Math.max(1, Math.round(task.effort_minutes / 25))} 🍅
-          </span>
-        ) : (
-          '—'
-        )}
+      <span className="hidden shrink-0 text-xs text-muted tabular-nums min-[560px]:inline">
+        {timeMeta(task)}
       </span>
       <div className="flex shrink-0 gap-1">
         <button className="btn-ghost p-1.5" title="Редактировать" onClick={() => setEditing(task)}>
@@ -197,7 +209,7 @@ export default function TasksView({ tasks, topics, onDataChanged }: Props) {
   }
 
   return (
-    <div className="p-6 space-y-4">
+    <div className="p-4 md:p-6 space-y-4">
       <div className="flex items-center">
         <h1 className="text-xl font-semibold">Мои задачи</h1>
         <button className="btn-primary ml-auto" onClick={() => setCreating(true)}>

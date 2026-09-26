@@ -191,7 +191,8 @@ type Task struct {
 	EstimatedDurationMinutes *int              `json:"estimated_duration_minutes"`
 	EffortMinutes            *int              `json:"effort_minutes"`
 	AllDay                   bool              `json:"all_day"`
-	RequiresPomodoro         bool              `gorm:"not null;default:true" json:"requires_pomodoro"`
+	RequiresPomodoro         bool              `gorm:"not null" json:"requires_pomodoro"`
+	Reschedulable            bool              `gorm:"not null;default:false" json:"reschedulable"`
 	Priority                 int               `json:"priority"`
 	Progress                 TaskProgress      `json:"progress"`
 	IsActive                 bool              `json:"is_active"`
@@ -201,6 +202,21 @@ type Task struct {
 }
 
 func (Task) TableName() string { return "tasks" }
+
+const (
+	MinPriority = 1
+	MaxPriority = 5
+)
+
+func PriorityWeightPercent(priority int) int {
+	if priority < MinPriority {
+		priority = MinPriority
+	}
+	if priority > MaxPriority {
+		priority = MaxPriority
+	}
+	return 100 + (priority-MinPriority)*50
+}
 
 type SyncTombstone struct {
 	ID        uint      `gorm:"primaryKey;autoIncrement" json:"-"`
