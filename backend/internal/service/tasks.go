@@ -419,6 +419,52 @@ func (s *TaskService) regenerate(ctx context.Context, tx repository.Store, task 
 			return err
 		}
 	}
+	return s.supersedeStaleMissed(ctx, tx, task)
+}
+
+// supersedeStaleMissed — только для spaced_repetition: пропущенное (missed) вхождение этапа, у которого
+// после смены intervals / сброса цепочки уже есть выполненное или новое pending-вхождение на другую дату,
+// переводится в rescheduled (rescheduled_to = дата актуального вхождения этапа). Иначе оно навсегда
+// висит в UI как пропуск и цепляет «Перенести все пропущенные», которая сдвинула бы всю серию.
+// Настоящий пропуск (у этапа нет другого вхождения) остаётся missed.
+func (s *TaskService) supersedeStaleMissed(ctx context.Context, tx repository.Store, task *models.Task) error {
+	if task.RecurrenceKind != models.RecurrenceSpacedRepetition {
+		return nil
+	}
+	occs, err := tx.Occurrences().List(ctx, repository.OccurrenceFilter{TaskID: &task.ID})
+	if err != nil {
+		return err
+	}
+	live := map[int]models.TaskOccurrence{}
+	for _, o := range occs {
+		if o.SeriesStep == nil || (o.Status != models.OccurrenceCompleted && o.Status != models.OccurrencePending) {
+			continue
+		}
+		cur, ok := live[*o.SeriesStep]
+		if !ok || (o.Status == models.OccurrenceCompleted && cur.Status != models.OccurrenceCompleted) {
+			live[*o.SeriesStep] = o
+		}
+	}
+	for i := range occs {
+		o := occs[i]
+		if o.Status != models.OccurrenceMissed || o.SeriesStep == nil {
+			continue
+		}
+		actual, ok := live[*o.SeriesStep]
+		if !ok || actual.Date == o.Date {
+			continue
+		}
+		oldDate, newDate := o.Date, actual.Date
+		o.Task = nil
+		o.Status = models.OccurrenceRescheduled
+		o.RescheduledTo = &newDate
+		if err := tx.Occurrences().Update(ctx, &o); err != nil {
+			return err
+		}
+		if err := emitOccurrenceRescheduled(ctx, tx, &o, oldDate, newDate, newDate.DaysSince(oldDate)); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

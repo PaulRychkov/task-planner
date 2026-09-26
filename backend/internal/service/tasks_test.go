@@ -455,3 +455,106 @@ func TestDeactivatedTaskLosesPending(t *testing.T) {
 		}
 	}
 }
+
+// Сценарий study-mcp: R1 и R2 пропущены, R1 выполнен с опозданием, серия перестроена (PUT intervals).
+// Старый missed R2 вытеснен новым pending R2 → rescheduled; настоящий пропуск без замены остаётся missed.
+func TestSRRebuildSupersedesStaleMissed(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+	start := mustDate(t, "2026-07-06")
+	in := srInput("повторение Go", []int{0, 1, 3, 7})
+	in.StartDate = &start
+	task := f.mustCreate(t, in)
+	if _, err := f.occs.Complete(ctx, f.occurrenceByDate(t, task.ID, "2026-07-06").ID); err != nil {
+		t.Fatalf("complete step 0: %v", err)
+	}
+
+	f.clock.Advance(5 * 24 * time.Hour) // 2026-07-11: R1 (07-07) и R2 (07-09) пропущены
+	if _, err := f.tasks.MarkMissed(ctx); err != nil {
+		t.Fatalf("mark missed: %v", err)
+	}
+	if err := f.tasks.GenerateAll(ctx); err != nil {
+		t.Fatalf("generate: %v", err)
+	}
+	for _, d := range []string{"2026-07-07", "2026-07-09"} {
+		if o := f.occurrenceByDate(t, task.ID, d); o == nil || o.Status != models.OccurrenceMissed {
+			t.Fatalf("%s: настоящий пропуск должен остаться missed после GenerateAll, got %+v", d, o)
+		}
+	}
+
+	if _, err := f.occs.Complete(ctx, f.occurrenceByDate(t, task.ID, "2026-07-07").ID); err != nil {
+		t.Fatalf("complete missed R1: %v", err)
+	}
+	cur, err := f.tasks.Get(ctx, task.ID)
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if _, err := f.tasks.Update(ctx, task.ID, TaskInput{
+		Title:            cur.Title,
+		RecurrenceKind:   cur.RecurrenceKind,
+		RecurrenceParams: &models.RecurrenceParams{Intervals: []int{0, 1, 7, 11}},
+		StartDate:        &cur.StartDate,
+	}); err != nil {
+		t.Fatalf("update intervals: %v", err)
+	}
+
+	stale := f.occurrenceByDate(t, task.ID, "2026-07-09")
+	if stale.Status != models.OccurrenceRescheduled {
+		t.Fatalf("старый missed R2: status %s, want rescheduled", stale.Status)
+	}
+	if stale.RescheduledTo == nil || stale.RescheduledTo.String() != "2026-07-13" {
+		t.Errorf("rescheduled_to = %v, want 2026-07-13", stale.RescheduledTo)
+	}
+	if r1 := f.occurrenceByDate(t, task.ID, "2026-07-07"); r1.Status != models.OccurrenceCompleted {
+		t.Errorf("выполненный R1 изменён: %s", r1.Status)
+	}
+	if r2 := f.occurrenceByDate(t, task.ID, "2026-07-13"); r2 == nil || r2.Status != models.OccurrencePending || *r2.SeriesStep != 2 {
+		t.Errorf("новый pending R2 на 2026-07-13 не создан: %+v", r2)
+	}
+	for _, o := range f.occurrences(t, task.ID) {
+		if o.Status == models.OccurrenceMissed {
+			t.Errorf("остался missed: %s step %v", o.Date, *o.SeriesStep)
+		}
+	}
+	if !f.hasEvent("occurrence.rescheduled") {
+		t.Error("occurrence.rescheduled not emitted")
+	}
+	if updated, _ := f.tasks.Get(ctx, task.ID); updated.StartDate != cur.StartDate {
+		t.Errorf("start_date сдвинут: %s → %s (серия не должна сдвигаться)", cur.StartDate, updated.StartDate)
+	}
+}
+
+func TestSRStaleMissedOfCompletedStepSuperseded(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+	start := mustDate(t, "2026-07-06")
+	in := srInput("повторное изучение", []int{0, 1, 3})
+	in.StartDate = &start
+	task := f.mustCreate(t, in)
+	if _, err := f.occs.Complete(ctx, f.occurrenceByDate(t, task.ID, "2026-07-06").ID); err != nil {
+		t.Fatalf("complete step 0: %v", err)
+	}
+	f.clock.Advance(3 * 24 * time.Hour) // 07-09: R1 (07-07) пропущен; изучаем заново → step 1 = сегодня
+	if _, err := f.tasks.MarkMissed(ctx); err != nil {
+		t.Fatalf("mark missed: %v", err)
+	}
+	cur, _ := f.tasks.Get(ctx, task.ID)
+	if _, err := f.tasks.Update(ctx, task.ID, TaskInput{
+		Title:            cur.Title,
+		RecurrenceKind:   cur.RecurrenceKind,
+		RecurrenceParams: &models.RecurrenceParams{Intervals: []int{0, 3, 4, 6}},
+		StartDate:        &cur.StartDate,
+	}); err != nil {
+		t.Fatalf("update: %v", err)
+	}
+	today := f.occurrenceByDate(t, task.ID, "2026-07-09")
+	if today == nil || today.Status != models.OccurrencePending || *today.SeriesStep != 1 {
+		t.Fatalf("pending step 1 на сегодня не создан: %+v", today)
+	}
+	if _, err := f.occs.Complete(ctx, today.ID); err != nil {
+		t.Fatalf("complete: %v", err)
+	}
+	if old := f.occurrenceByDate(t, task.ID, "2026-07-07"); old.Status != models.OccurrenceRescheduled || old.RescheduledTo.String() != "2026-07-09" {
+		t.Errorf("старый missed step 1: %s → %v, want rescheduled → 2026-07-09", old.Status, old.RescheduledTo)
+	}
+}

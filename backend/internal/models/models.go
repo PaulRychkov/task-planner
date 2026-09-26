@@ -191,7 +191,7 @@ type Task struct {
 	EstimatedDurationMinutes *int              `json:"estimated_duration_minutes"`
 	EffortMinutes            *int              `json:"effort_minutes"`
 	AllDay                   bool              `json:"all_day"`
-	RequiresPomodoro         bool              `gorm:"not null;default:true" json:"requires_pomodoro"`
+	RequiresPomodoro         bool              `gorm:"not null" json:"requires_pomodoro"` // без gorm default:true — иначе Create теряет явный false; дефолт для отсутствующего поля задаёт TaskService.Create
 	Priority                 int               `json:"priority"`
 	Progress                 TaskProgress      `json:"progress"`
 	IsActive                 bool              `json:"is_active"`

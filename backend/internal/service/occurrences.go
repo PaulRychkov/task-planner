@@ -22,7 +22,13 @@ func NewOccurrenceService(store repository.Store, clock Clock, loc *time.Locatio
 }
 
 func (s *OccurrenceService) List(ctx context.Context, from, to *models.Date, status *models.OccurrenceStatus) ([]models.TaskOccurrence, error) {
-	return s.store.Occurrences().List(ctx, repository.OccurrenceFilter{From: from, To: to, Status: status})
+	return s.ListForTask(ctx, nil, from, to, status)
+}
+
+// ListForTask — то же, что List, с необязательным фильтром по задаче (GET /occurrences?task_id=…):
+// клиентам вроде study-mcp не нужно выкачивать вхождения всех задач ради одной.
+func (s *OccurrenceService) ListForTask(ctx context.Context, taskID *uuid.UUID, from, to *models.Date, status *models.OccurrenceStatus) ([]models.TaskOccurrence, error) {
+	return s.store.Occurrences().List(ctx, repository.OccurrenceFilter{TaskID: taskID, From: from, To: to, Status: status})
 }
 
 func (s *OccurrenceService) Complete(ctx context.Context, id uuid.UUID) (*models.TaskOccurrence, error) {

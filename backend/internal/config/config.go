@@ -39,8 +39,15 @@ func (c DBConfig) IsSQLite() bool {
 	return c.Driver == "sqlite"
 }
 
+// SQLiteDSN: _txlock=immediate — транзакции берут блокировку записи сразу (BEGIN IMMEDIATE) и ждут её по busy_timeout.
+// В режиме DEFERRED транзакция «чтение → запись» при параллельном писателе получает SQLITE_BUSY без ожидания
+// («database is locked» → HTTP 500).
 func (c DBConfig) SQLiteDSN() string {
-	return "file:" + strings.ReplaceAll(c.Path, "\\", "/") + "?_pragma=foreign_keys(1)&_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)"
+	return SQLiteDSN(c.Path)
+}
+
+func SQLiteDSN(path string) string {
+	return "file:" + strings.ReplaceAll(path, "\\", "/") + "?_pragma=foreign_keys(1)&_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_txlock=immediate"
 }
 
 func (c DBConfig) DSN() string {
