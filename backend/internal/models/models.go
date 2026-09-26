@@ -242,17 +242,17 @@ func (t Task) TopicName() string {
 }
 
 type TaskOccurrence struct {
-	ID            uuid.UUID        `gorm:"type:uuid;primaryKey" json:"id"`
-	TaskID        uuid.UUID        `gorm:"type:uuid" json:"task_id"`
+	ID              uuid.UUID        `gorm:"type:uuid;primaryKey" json:"id"`
+	TaskID          uuid.UUID        `gorm:"type:uuid" json:"task_id"`
 	Date            Date             `gorm:"type:date" json:"date"`
 	Status          OccurrenceStatus `json:"status"`
 	ProgressMinutes int              `gorm:"not null;default:0" json:"progress_minutes"`
 	SeriesStep      *int             `json:"series_step"`
-	CompletedAt   *time.Time       `json:"completed_at"`
-	RescheduledTo *Date            `gorm:"type:date" json:"rescheduled_to"`
-	CreatedAt     time.Time        `json:"created_at"`
-	UpdatedAt     time.Time        `json:"updated_at"`
-	Task          *Task            `gorm:"foreignKey:TaskID" json:"task,omitempty"`
+	CompletedAt     *time.Time       `json:"completed_at"`
+	RescheduledTo   *Date            `gorm:"type:date" json:"rescheduled_to"`
+	CreatedAt       time.Time        `json:"created_at"`
+	UpdatedAt       time.Time        `json:"updated_at"`
+	Task            *Task            `gorm:"foreignKey:TaskID" json:"task,omitempty"`
 }
 
 func (TaskOccurrence) TableName() string { return "task_occurrences" }

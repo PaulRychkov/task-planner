@@ -50,7 +50,7 @@ go run ./cmd/tasks
 | GET/POST `/topics`, GET/PUT/DELETE `/topics/{id}` | справочник тем |
 | GET/POST `/tasks`, GET/PUT/DELETE `/tasks/{id}` | CRUD правил задач (создание/правка перегенерирует окно) |
 | POST `/tasks/{id}/reschedule-missed` | сдвиг невыполненных: missed/просроченные pending → rescheduled, start_date сдвигается, серия сохраняет series_step |
-| GET `/occurrences?from&to&status` | вхождения с задачей и темой |
+| GET `/occurrences?from&to&status&task_id` | вхождения с задачей и темой (`task_id` — необязательный фильтр по одной задаче) |
 | POST `/occurrences/{id}/complete` | выполнить (+ `occurrence.completed`; закрытие once/последнего SR-этапа → `task.completed`) |
 | POST `/occurrences/{id}/skip` | осознанный пропуск (+ `occurrence.skipped`) |
 | GET `/plans/{date}` | план дня с элементами |

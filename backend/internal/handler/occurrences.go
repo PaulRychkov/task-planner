@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 
 	"github.com/PaulRychkov/task-planner/backend/internal/models"
 )
@@ -37,8 +38,17 @@ func (h *Handler) listOccurrences(c *gin.Context) {
 		}
 		status = &st
 	}
+	var taskID *uuid.UUID
+	if s := c.Query("task_id"); s != "" {
+		id, err := uuid.Parse(s)
+		if err != nil {
+			h.badRequest(c, "invalid task_id, expected uuid")
+			return
+		}
+		taskID = &id
+	}
 
-	occs, err := h.occs.List(c.Request.Context(), from, to, status)
+	occs, err := h.occs.ListForTask(c.Request.Context(), taskID, from, to, status)
 	if err != nil {
 		h.fail(c, err)
 		return

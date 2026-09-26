@@ -215,6 +215,24 @@ func TestOccurrenceFiltersOverHTTP(t *testing.T) {
 		}
 	}
 
+	other := e.createTask(t, map[string]any{"title": "вода", "recurrence_kind": "daily"})
+	rec = e.do(t, http.MethodGet, "/api/v1/occurrences?from=2026-07-06&to=2026-07-08&task_id="+other.ID.String(), nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("task_id filter: %d", rec.Code)
+	}
+	byTask := decode[[]models.TaskOccurrence](t, rec)
+	if len(byTask) != 3 {
+		t.Fatalf("task_id filter: got %d occurrences, want 3", len(byTask))
+	}
+	for _, o := range byTask {
+		if o.TaskID != other.ID {
+			t.Errorf("task_id filter returned occurrence of task %s", o.TaskID)
+		}
+	}
+	if rec = e.do(t, http.MethodGet, "/api/v1/occurrences?task_id=nope", nil); rec.Code != http.StatusBadRequest {
+		t.Fatalf("bad task_id: %d, want 400", rec.Code)
+	}
+
 	rec = e.do(t, http.MethodGet, "/api/v1/occurrences?from=bad-date", nil)
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("bad from: %d, want 400", rec.Code)

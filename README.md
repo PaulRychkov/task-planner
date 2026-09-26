@@ -91,7 +91,7 @@ deploy\build-android.ps1
 ## API (кратко)
 
 REST `/api/v1` (JSON snake_case, ошибки `{"error":{"code","message"}}`):
-CRUD `/topics`, `/tasks`; `GET /occurrences?from&to&status`; `POST /occurrences/{id}/complete|skip`; `POST /tasks/{id}/reschedule-missed`; `GET /plans/{date}`; `PUT /plans/{date}/items`; `POST /plans/{date}/commit`; `GET /calendar.ics`; `GET /healthz`.
+CRUD `/topics`, `/tasks`; `GET /occurrences?from&to&status&task_id`; `POST /occurrences/{id}/complete|skip`; `POST /tasks/{id}/reschedule-missed`; `GET /plans/{date}`; `PUT /plans/{date}/items`; `POST /plans/{date}/commit`; `GET /calendar.ics`; `GET /healthz`.
 
 MCP (streamable HTTP `/mcp`): `list_tasks`, `create_task` (плоские поля повторений + `effort_minutes`, `requires_pomodoro`, `topic`/`parent_topic`), `complete_occurrence`, `skip_occurrence`, `list_due`, `get_day_plan`, `commit_day_plan`, `reschedule_missed`, `create_topic` (с родителем — дерево тем), `list_topics`.
 

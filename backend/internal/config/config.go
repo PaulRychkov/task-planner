@@ -40,7 +40,11 @@ func (c DBConfig) IsSQLite() bool {
 }
 
 func (c DBConfig) SQLiteDSN() string {
-	return "file:" + strings.ReplaceAll(c.Path, "\\", "/") + "?_pragma=foreign_keys(1)&_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)"
+	return SQLiteDSN(c.Path)
+}
+
+func SQLiteDSN(path string) string {
+	return "file:" + strings.ReplaceAll(path, "\\", "/") + "?_pragma=foreign_keys(1)&_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_txlock=immediate"
 }
 
 func (c DBConfig) DSN() string {

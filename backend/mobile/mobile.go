@@ -12,8 +12,8 @@ import (
 	"time"
 	_ "time/tzdata"
 
-	"github.com/ncruces/go-sqlite3/gormlite"
 	_ "github.com/ncruces/go-sqlite3/embed"
+	"github.com/ncruces/go-sqlite3/gormlite"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 	gormlogger "gorm.io/gorm/logger"
@@ -48,7 +48,7 @@ func Start(dataDir, syncURL, syncToken string) string {
 		return "logger: " + err.Error()
 	}
 	dbPath := filepath.Join(dataDir, "tasks.db")
-	db, err := gorm.Open(gormlite.Open("file:"+strings.ReplaceAll(dbPath, "\\", "/")+"?_pragma=foreign_keys(1)&_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)"), &gorm.Config{
+	db, err := gorm.Open(gormlite.Open("file:"+strings.ReplaceAll(dbPath, "\\", "/")+"?_pragma=foreign_keys(1)&_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_txlock=immediate"), &gorm.Config{
 		TranslateError: true,
 		Logger:         gormlogger.Default.LogMode(gormlogger.Silent),
 		NowFunc:        func() time.Time { return time.Now().UTC() },
